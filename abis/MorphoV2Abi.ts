@@ -64,6 +64,44 @@ export const MorphoV2Abi = [
     anonymous: false,
     inputs: [
       {
+        indexed: true,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "bool",
+        name: "newIsSentinel",
+        type: "bool",
+      },
+    ],
+    name: "SetIsSentinel",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "account",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "bool",
+        name: "newIsAllocator",
+        type: "bool",
+      },
+    ],
+    name: "SetIsAllocator",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
         indexed: false,
         internalType: "string",
         name: "newName",
