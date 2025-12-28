@@ -1,6 +1,6 @@
 import { createConfig } from "ponder";
 
-import { ExampleContractAbi } from "./abis/ExampleContractAbi";
+import { MorphoV2Abi } from "./abis/MorphoV2Abi";
 
 export default createConfig({
   chains: {
@@ -10,11 +10,11 @@ export default createConfig({
     },
   },
   contracts: {
-    ExampleContract: {
+    MorphoV2: {
       chain: "mainnet",
-      abi: ExampleContractAbi,
-      address: "0x0000000000000000000000000000000000000000",
-      startBlock: 1234567,
+      abi: MorphoV2Abi,
+      address: "0x0000000000000000000000000000000000000000", // TODO: Replace with actual contract address
+      startBlock: 1234567, // TODO: Replace with actual start block
     },
   },
 });
