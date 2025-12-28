@@ -7,6 +7,7 @@ import {
   allocatorSetEvent,
   nameSetEvent,
   symbolSetEvent,
+  gateSetEvent,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 
@@ -194,5 +195,97 @@ ponder.on("MorphoV2:SetSymbol", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ symbol: event.args.newSymbol });
+});
+
+/*//////////////////////////////////////////////////////////////
+                              GATES
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(gateSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    gateType: "receiveShares",
+    newGate: event.args.newReceiveSharesGate,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ receiveSharesGate: event.args.newReceiveSharesGate });
+});
+
+ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(gateSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    gateType: "sendShares",
+    newGate: event.args.newSendSharesGate,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ sendSharesGate: event.args.newSendSharesGate });
+});
+
+ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(gateSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    gateType: "receiveAssets",
+    newGate: event.args.newReceiveAssetsGate,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ receiveAssetsGate: event.args.newReceiveAssetsGate });
+});
+
+ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(gateSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    gateType: "sendAssets",
+    newGate: event.args.newSendAssetsGate,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ sendAssetsGate: event.args.newSendAssetsGate });
 });
 

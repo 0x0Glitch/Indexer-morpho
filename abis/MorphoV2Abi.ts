@@ -124,4 +124,56 @@ export const MorphoV2Abi = [
     name: "SetSymbol",
     type: "event",
   },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newReceiveSharesGate",
+        type: "address",
+      },
+    ],
+    name: "SetReceiveSharesGate",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newSendSharesGate",
+        type: "address",
+      },
+    ],
+    name: "SetSendSharesGate",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newReceiveAssetsGate",
+        type: "address",
+      },
+    ],
+    name: "SetReceiveAssetsGate",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "newSendAssetsGate",
+        type: "address",
+      },
+    ],
+    name: "SetSendAssetsGate",
+    type: "event",
+  },
 ] as const;

@@ -22,6 +22,12 @@ export const vaultV2 = onchainTable(
     allocators: t.hex().array().notNull().default([]),
     sentinels: t.hex().array().notNull().default([]),
 
+    // Gates
+    receiveSharesGate: t.hex().notNull().default(zeroAddress),
+    sendSharesGate: t.hex().notNull().default(zeroAddress),
+    receiveAssetsGate: t.hex().notNull().default(zeroAddress),
+    sendAssetsGate: t.hex().notNull().default(zeroAddress),
+
     // Metadata
     name: t.text().notNull(),
     symbol: t.text().notNull(),
@@ -151,5 +157,26 @@ export const symbolSetEvent = onchainTable(
   (table) => ({
     pk: primaryKey({ columns: [table.id] }),
     vaultIdx: index().on(table.chainId, table.vaultAddress),
+  }),
+);
+
+export const gateSetEvent = onchainTable(
+  "gate_set_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    logIndex: t.integer().notNull(),
+
+    gateType: t.text().notNull(), // 'receiveShares', 'sendShares', 'receiveAssets', 'sendAssets'
+    newGate: t.hex().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    gateTypeIdx: index().on(table.gateType),
   }),
 );
