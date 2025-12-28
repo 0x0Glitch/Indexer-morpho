@@ -41,6 +41,10 @@ ponder.on("MorphoV2:Constructor", async ({ event, context }) => {
     // Primary key
     chainId: context.chain.id,
     address: event.log.address,
+    // Creation metadata
+    createdAtBlock: event.block.number,
+    createdAtTimestamp: event.block.timestamp,
+    createdAtTransaction: event.transaction.hash,
     // Immutables
     asset: event.args.asset,
     owner: event.args.owner,
@@ -56,7 +60,7 @@ ponder.on("MorphoV2:Constructor", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetOwner", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(ownerSetEvent).values({
@@ -66,6 +70,7 @@ ponder.on("MorphoV2:SetOwner", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newOwner: event.args.newOwner,
   });
@@ -81,7 +86,7 @@ ponder.on("MorphoV2:SetOwner", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetCurator", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(curatorSetEvent).values({
@@ -91,6 +96,7 @@ ponder.on("MorphoV2:SetCurator", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newCurator: event.args.newCurator,
   });
@@ -106,7 +112,7 @@ ponder.on("MorphoV2:SetCurator", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetIsSentinel", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(sentinelSetEvent).values({
@@ -116,6 +122,7 @@ ponder.on("MorphoV2:SetIsSentinel", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     account: event.args.account,
     newIsSentinel: event.args.newIsSentinel,
@@ -136,7 +143,7 @@ ponder.on("MorphoV2:SetIsSentinel", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(allocatorSetEvent).values({
@@ -146,6 +153,7 @@ ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     account: event.args.account,
     newIsAllocator: event.args.newIsAllocator,
@@ -170,7 +178,7 @@ ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetName", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(nameSetEvent).values({
@@ -180,6 +188,7 @@ ponder.on("MorphoV2:SetName", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newName: event.args.newName,
   });
@@ -191,7 +200,7 @@ ponder.on("MorphoV2:SetName", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetSymbol", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(symbolSetEvent).values({
@@ -201,6 +210,7 @@ ponder.on("MorphoV2:SetSymbol", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newSymbol: event.args.newSymbol,
   });
@@ -216,7 +226,7 @@ ponder.on("MorphoV2:SetSymbol", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(gateSetEvent).values({
@@ -226,6 +236,7 @@ ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     gateType: "receiveShares",
     newGate: event.args.newReceiveSharesGate,
@@ -238,7 +249,7 @@ ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(gateSetEvent).values({
@@ -248,6 +259,7 @@ ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     gateType: "sendShares",
     newGate: event.args.newSendSharesGate,
@@ -260,7 +272,7 @@ ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(gateSetEvent).values({
@@ -270,6 +282,7 @@ ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     gateType: "receiveAssets",
     newGate: event.args.newReceiveAssetsGate,
@@ -282,7 +295,7 @@ ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(gateSetEvent).values({
@@ -292,6 +305,7 @@ ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     gateType: "sendAssets",
     newGate: event.args.newSendAssetsGate,
@@ -308,7 +322,7 @@ ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(adapterRegistrySetEvent).values({
@@ -318,6 +332,7 @@ ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newAdapterRegistry: event.args.newAdapterRegistry,
   });
@@ -333,7 +348,7 @@ ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(adapterMembershipEvent).values({
@@ -343,6 +358,7 @@ ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "add",
     account: event.args.account,
@@ -359,7 +375,7 @@ ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(adapterMembershipEvent).values({
@@ -369,6 +385,7 @@ ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "remove",
     account: event.args.account,
@@ -389,7 +406,7 @@ ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:DecreaseTimelock", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(timelockDurationChangeEvent).values({
@@ -399,6 +416,7 @@ ponder.on("MorphoV2:DecreaseTimelock", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "decrease",
     selector: event.args.selector,
@@ -407,7 +425,7 @@ ponder.on("MorphoV2:DecreaseTimelock", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:IncreaseTimelock", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(timelockDurationChangeEvent).values({
@@ -417,6 +435,7 @@ ponder.on("MorphoV2:IncreaseTimelock", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "increase",
     selector: event.args.selector,
@@ -429,7 +448,7 @@ ponder.on("MorphoV2:IncreaseTimelock", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:Abdicate", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(abdicateEvent).values({
@@ -439,6 +458,7 @@ ponder.on("MorphoV2:Abdicate", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     selector: event.args.selector,
   });
@@ -449,7 +469,7 @@ ponder.on("MorphoV2:Abdicate", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(liquidityAdapterSetEvent).values({
@@ -459,6 +479,7 @@ ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     sender: event.args.sender,
     newLiquidityAdapter: event.args.newLiquidityAdapter,
@@ -479,7 +500,7 @@ ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(performanceFeeSetEvent).values({
@@ -489,6 +510,7 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newPerformanceFee: event.args.newPerformanceFee,
   });
@@ -500,7 +522,7 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(performanceFeeRecipientSetEvent).values({
@@ -510,6 +532,7 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newPerformanceFeeRecipient: event.args.newPerformanceFeeRecipient,
   });
@@ -521,7 +544,7 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(managementFeeSetEvent).values({
@@ -531,6 +554,7 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newManagementFee: event.args.newManagementFee,
   });
@@ -542,7 +566,7 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(managementFeeRecipientSetEvent).values({
@@ -552,6 +576,7 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newManagementFeeRecipient: event.args.newManagementFeeRecipient,
   });
@@ -567,7 +592,7 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(maxRateSetEvent).values({
@@ -577,6 +602,7 @@ ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     newMaxRate: event.args.newMaxRate,
   });
@@ -588,7 +614,7 @@ ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:SetForceDeallocatePenalty", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(forceDeallocatePenaltySetEvent).values({
@@ -598,12 +624,13 @@ ponder.on("MorphoV2:SetForceDeallocatePenalty", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     adapter: event.args.adapter,
     forceDeallocatePenalty: event.args.forceDeallocatePenalty,
   });
 
-  // Update adapter penalty state
+  // Update adapter penalty state (upsert on composite PK: chainId, vaultAddress, adapterAddress)
   await context.db
     .insert(adapterPenalty)
     .values({
@@ -612,7 +639,9 @@ ponder.on("MorphoV2:SetForceDeallocatePenalty", async ({ event, context }) => {
       adapterAddress: event.args.adapter,
       forceDeallocatePenalty: event.args.forceDeallocatePenalty,
     })
-    .onConflictDoUpdate({ forceDeallocatePenalty: event.args.forceDeallocatePenalty });
+    .onConflictDoUpdate({
+      forceDeallocatePenalty: event.args.forceDeallocatePenalty,
+    });
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -620,7 +649,7 @@ ponder.on("MorphoV2:SetForceDeallocatePenalty", async ({ event, context }) => {
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:DecreaseAbsoluteCap", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(absoluteCapChangeEvent).values({
@@ -630,6 +659,7 @@ ponder.on("MorphoV2:DecreaseAbsoluteCap", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "decrease",
     senderAddress: event.args.sender,
@@ -640,7 +670,7 @@ ponder.on("MorphoV2:DecreaseAbsoluteCap", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(absoluteCapChangeEvent).values({
@@ -650,6 +680,7 @@ ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "increase",
     senderAddress: null,
@@ -660,7 +691,7 @@ ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(relativeCapChangeEvent).values({
@@ -670,6 +701,7 @@ ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "decrease",
     senderAddress: event.args.sender,
@@ -680,7 +712,7 @@ ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
 });
 
 ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
-  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+  const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   // Insert event record
   await context.db.insert(relativeCapChangeEvent).values({
@@ -690,6 +722,7 @@ ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
     logIndex: event.log.logIndex,
     action: "increase",
     senderAddress: null,

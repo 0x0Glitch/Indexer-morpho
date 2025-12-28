@@ -13,8 +13,12 @@ export default createConfig({
     MorphoV2: {
       chain: "mainnet",
       abi: MorphoV2Abi,
-      address: "0x0000000000000000000000000000000000000000", // TODO: Replace with actual contract address
-      startBlock: 1234567, // TODO: Replace with actual start block
+      // Multiple vault addresses can be indexed by providing an array
+      // Each vault will be tracked independently with its own events
+      address: [
+
+      ],
+      startBlock: 0, 
     },
   },
 });

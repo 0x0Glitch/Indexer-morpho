@@ -11,6 +11,11 @@ export const vaultV2 = onchainTable(
     chainId: t.integer().notNull(),
     address: t.hex().notNull(),
 
+    // Creation metadata
+    createdAtBlock: t.bigint().notNull(),
+    createdAtTimestamp: t.bigint().notNull(),
+    createdAtTransaction: t.hex().notNull(),
+
     // Immutables
     asset: t.hex().notNull(),
 
@@ -83,6 +88,7 @@ export const ownerSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newOwner: t.hex().notNull(),
@@ -102,6 +108,7 @@ export const curatorSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newCurator: t.hex().notNull(),
@@ -121,6 +128,7 @@ export const sentinelSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     account: t.hex().notNull(),
@@ -142,6 +150,7 @@ export const allocatorSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     account: t.hex().notNull(),
@@ -163,6 +172,7 @@ export const nameSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newName: t.text().notNull(),
@@ -182,6 +192,7 @@ export const symbolSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newSymbol: t.text().notNull(),
@@ -201,6 +212,7 @@ export const gateSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     gateType: t.text().notNull(), // 'receiveShares', 'sendShares', 'receiveAssets', 'sendAssets'
@@ -222,6 +234,7 @@ export const adapterRegistrySetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newAdapterRegistry: t.hex().notNull(),
@@ -241,6 +254,7 @@ export const adapterMembershipEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     action: t.text().notNull(), // 'add' or 'remove'
@@ -262,6 +276,7 @@ export const timelockDurationChangeEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     action: t.text().notNull(), // 'increase' or 'decrease'
@@ -283,6 +298,7 @@ export const abdicateEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     selector: t.hex().notNull(),
@@ -302,6 +318,7 @@ export const liquidityAdapterSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     sender: t.hex().notNull(),
@@ -323,6 +340,7 @@ export const performanceFeeSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newPerformanceFee: t.bigint().notNull(),
@@ -342,6 +360,7 @@ export const performanceFeeRecipientSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newPerformanceFeeRecipient: t.hex().notNull(),
@@ -361,6 +380,7 @@ export const managementFeeSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newManagementFee: t.bigint().notNull(),
@@ -380,6 +400,7 @@ export const managementFeeRecipientSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newManagementFeeRecipient: t.hex().notNull(),
@@ -399,6 +420,7 @@ export const absoluteCapChangeEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     action: t.text().notNull(), // 'increase' or 'decrease'
@@ -423,6 +445,7 @@ export const relativeCapChangeEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     action: t.text().notNull(), // 'increase' or 'decrease'
@@ -447,6 +470,7 @@ export const maxRateSetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     newMaxRate: t.bigint().notNull(),
@@ -466,6 +490,7 @@ export const forceDeallocatePenaltySetEvent = onchainTable(
     blockNumber: t.bigint().notNull(),
     blockTimestamp: t.bigint().notNull(),
     transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
     adapter: t.hex().notNull(),
