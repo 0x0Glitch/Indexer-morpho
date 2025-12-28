@@ -4,6 +4,7 @@ import {
   depositEvent,
   withdrawEvent,
   transferEvent,
+  vaultV2,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
@@ -45,7 +46,15 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
     managementFeeShares: event.args.managementFeeShares,
   });
 
-  // Update state and create checkpoint
+  // Update vault table accounting state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({
+      totalAssets: event.args.newTotalAssets,
+      lastUpdateTimestamp: event.block.timestamp,
+    });
+
+  // Create checkpoint
   await checkpointManager.handleAccrueInterest(
     context,
     context.chain.id,
@@ -82,6 +91,11 @@ ponder.on("MorphoV2:Deposit", async ({ event, context }) => {
     shares: event.args.shares,
   });
 
+  // Update vault table accounting state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set((row) => ({ totalAssets: row.totalAssets + event.args.assets }));
+
   // Update state and create checkpoint
   await checkpointManager.handleDeposit(
     context,
@@ -92,7 +106,6 @@ ponder.on("MorphoV2:Deposit", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.assets,
   );
 });
 
@@ -120,6 +133,11 @@ ponder.on("MorphoV2:Withdraw", async ({ event, context }) => {
     shares: event.args.shares,
   });
 
+  // Update vault table accounting state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set((row) => ({ totalAssets: row.totalAssets - event.args.assets }));
+
   // Update state and create checkpoint
   await checkpointManager.handleWithdraw(
     context,
@@ -130,7 +148,6 @@ ponder.on("MorphoV2:Withdraw", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.assets,
   );
 });
 
@@ -160,6 +177,11 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
 
   // Only create checkpoints for mint and burn (totalSupply changes)
   if (isMint) {
+    // Update vault table accounting state
+    await context.db
+      .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+      .set((row) => ({ totalSupply: row.totalSupply + event.args.shares }));
+
     // Mint: totalSupply += shares
     await checkpointManager.handleMint(
       context,
@@ -170,9 +192,13 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
       event.block.timestamp,
       event.transaction.hash,
       event.log.logIndex,
-      event.args.shares,
     );
   } else if (isBurn) {
+    // Update vault table accounting state
+    await context.db
+      .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+      .set((row) => ({ totalSupply: row.totalSupply - event.args.shares }));
+
     // Burn: totalSupply -= shares
     await checkpointManager.handleBurn(
       context,
@@ -183,7 +209,6 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
       event.block.timestamp,
       event.transaction.hash,
       event.log.logIndex,
-      event.args.shares,
     );
   }
   // Regular transfers (from != 0x0 && to != 0x0) do not change totalSupply, so no checkpoint needed

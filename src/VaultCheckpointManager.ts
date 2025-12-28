@@ -138,8 +138,7 @@ export class VaultCheckpointManager {
   }
 
   /**
-   * Handle Deposit: requires previous totalAssets
-   * Note: This is a simplified version. In production, you'd query the previous checkpoint.
+   * Handle Deposit: reads current state from vault table
    */
   async handleDeposit(
     context: Context,
@@ -150,11 +149,8 @@ export class VaultCheckpointManager {
     blockTimestamp: bigint,
     transactionHash: Hex,
     logIndex: number,
-    assets: bigint,
-    previousTotalAssets: bigint, // Passed from caller who knows the state
   ): Promise<void> {
     const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.totalAssets = previousTotalAssets + assets;
 
     await this.createCheckpoint(
       context,
@@ -170,7 +166,7 @@ export class VaultCheckpointManager {
   }
 
   /**
-   * Handle Withdraw: requires previous totalAssets
+   * Handle Withdraw: reads current state from vault table
    */
   async handleWithdraw(
     context: Context,
@@ -181,11 +177,8 @@ export class VaultCheckpointManager {
     blockTimestamp: bigint,
     transactionHash: Hex,
     logIndex: number,
-    assets: bigint,
-    previousTotalAssets: bigint,
   ): Promise<void> {
     const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.totalAssets = previousTotalAssets - assets;
 
     await this.createCheckpoint(
       context,
@@ -201,7 +194,7 @@ export class VaultCheckpointManager {
   }
 
   /**
-   * Handle Mint: requires previous totalSupply
+   * Handle Mint: reads current state from vault table
    */
   async handleMint(
     context: Context,
@@ -212,11 +205,8 @@ export class VaultCheckpointManager {
     blockTimestamp: bigint,
     transactionHash: Hex,
     logIndex: number,
-    shares: bigint,
-    previousTotalSupply: bigint,
   ): Promise<void> {
     const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.totalSupply = previousTotalSupply + shares;
 
     await this.createCheckpoint(
       context,
@@ -232,7 +222,7 @@ export class VaultCheckpointManager {
   }
 
   /**
-   * Handle Burn: requires previous totalSupply
+   * Handle Burn: reads current state from vault table
    */
   async handleBurn(
     context: Context,
@@ -243,11 +233,8 @@ export class VaultCheckpointManager {
     blockTimestamp: bigint,
     transactionHash: Hex,
     logIndex: number,
-    shares: bigint,
-    previousTotalSupply: bigint,
   ): Promise<void> {
     const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.totalSupply = previousTotalSupply - shares;
 
     await this.createCheckpoint(
       context,
