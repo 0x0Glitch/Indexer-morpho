@@ -1,6 +1,7 @@
 import { ponder } from "ponder:registry";
 import {
   vaultV2,
+  adapterPenalty,
   ownerSetEvent,
   curatorSetEvent,
   sentinelSetEvent,
@@ -8,6 +9,19 @@ import {
   nameSetEvent,
   symbolSetEvent,
   gateSetEvent,
+  adapterRegistrySetEvent,
+  adapterMembershipEvent,
+  timelockDurationChangeEvent,
+  abdicateEvent,
+  liquidityAdapterSetEvent,
+  performanceFeeSetEvent,
+  performanceFeeRecipientSetEvent,
+  managementFeeSetEvent,
+  managementFeeRecipientSetEvent,
+  absoluteCapChangeEvent,
+  relativeCapChangeEvent,
+  maxRateSetEvent,
+  forceDeallocatePenaltySetEvent,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 
@@ -287,5 +301,401 @@ ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ sendAssetsGate: event.args.newSendAssetsGate });
+});
+
+/*//////////////////////////////////////////////////////////////
+                      ADAPTER REGISTRY
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(adapterRegistrySetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    newAdapterRegistry: event.args.newAdapterRegistry,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ adapterRegistry: event.args.newAdapterRegistry });
+});
+
+/*//////////////////////////////////////////////////////////////
+                    ADAPTER MEMBERSHIP
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(adapterMembershipEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "add",
+    account: event.args.account,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set((row) => {
+      const set = new Set(row.adapters);
+      set.add(event.args.account);
+      return { adapters: [...set] };
+    });
+});
+
+ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(adapterMembershipEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "remove",
+    account: event.args.account,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set((row) => {
+      const set = new Set(row.adapters);
+      set.delete(event.args.account);
+      return { adapters: [...set] };
+    });
+});
+
+/*//////////////////////////////////////////////////////////////
+                    TIMELOCK DURATIONS
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:DecreaseTimelock", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(timelockDurationChangeEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "decrease",
+    selector: event.args.selector,
+    newDuration: event.args.newDuration,
+  });
+});
+
+ponder.on("MorphoV2:IncreaseTimelock", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(timelockDurationChangeEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "increase",
+    selector: event.args.selector,
+    newDuration: event.args.newDuration,
+  });
+});
+
+/*//////////////////////////////////////////////////////////////
+                        ABDICATION
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:Abdicate", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(abdicateEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    selector: event.args.selector,
+  });
+});
+
+/*//////////////////////////////////////////////////////////////
+                    LIQUIDITY ADAPTER
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(liquidityAdapterSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    sender: event.args.sender,
+    newLiquidityAdapter: event.args.newLiquidityAdapter,
+    newLiquidityData: event.args.newLiquidityData,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({
+      liquidityAdapter: event.args.newLiquidityAdapter,
+      liquidityData: event.args.newLiquidityData,
+    });
+});
+
+/*//////////////////////////////////////////////////////////////
+                            FEES
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(performanceFeeSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    newPerformanceFee: event.args.newPerformanceFee,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ performanceFee: event.args.newPerformanceFee });
+});
+
+ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(performanceFeeRecipientSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    newPerformanceFeeRecipient: event.args.newPerformanceFeeRecipient,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ performanceFeeRecipient: event.args.newPerformanceFeeRecipient });
+});
+
+ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(managementFeeSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    newManagementFee: event.args.newManagementFee,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ managementFee: event.args.newManagementFee });
+});
+
+ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(managementFeeRecipientSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    newManagementFeeRecipient: event.args.newManagementFeeRecipient,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ managementFeeRecipient: event.args.newManagementFeeRecipient });
+});
+
+/*//////////////////////////////////////////////////////////////
+                      RATE & PENALTIES
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(maxRateSetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    newMaxRate: event.args.newMaxRate,
+  });
+
+  // Update vault state
+  await context.db
+    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .set({ maxRate: event.args.newMaxRate });
+});
+
+ponder.on("MorphoV2:SetForceDeallocatePenalty", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(forceDeallocatePenaltySetEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    adapter: event.args.adapter,
+    forceDeallocatePenalty: event.args.forceDeallocatePenalty,
+  });
+
+  // Update adapter penalty state
+  await context.db
+    .insert(adapterPenalty)
+    .values({
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      adapterAddress: event.args.adapter,
+      forceDeallocatePenalty: event.args.forceDeallocatePenalty,
+    })
+    .onConflictDoUpdate({ forceDeallocatePenalty: event.args.forceDeallocatePenalty });
+});
+
+/*//////////////////////////////////////////////////////////////
+                            CAPS
+//////////////////////////////////////////////////////////////*/
+
+ponder.on("MorphoV2:DecreaseAbsoluteCap", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(absoluteCapChangeEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "decrease",
+    senderAddress: event.args.sender,
+    marketId: event.args.id,
+    idData: event.args.idData,
+    newAbsoluteCap: event.args.newAbsoluteCap,
+  });
+});
+
+ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(absoluteCapChangeEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "increase",
+    senderAddress: null,
+    marketId: event.args.id,
+    idData: event.args.idData,
+    newAbsoluteCap: event.args.newAbsoluteCap,
+  });
+});
+
+ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(relativeCapChangeEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "decrease",
+    senderAddress: event.args.sender,
+    marketId: event.args.id,
+    idData: event.args.idData,
+    newRelativeCap: event.args.newRelativeCap,
+  });
+});
+
+ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
+  const eventId = `${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record
+  await context.db.insert(relativeCapChangeEvent).values({
+    id: eventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    logIndex: event.log.logIndex,
+    action: "increase",
+    senderAddress: null,
+    marketId: event.args.id,
+    idData: event.args.idData,
+    newRelativeCap: event.args.newRelativeCap,
+  });
 });
 
