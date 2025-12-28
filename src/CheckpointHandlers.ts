@@ -55,7 +55,7 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
     });
 
   // Create checkpoint
-  await checkpointManager.handleAccrueInterest(
+  await checkpointManager.handleAccountingEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -64,7 +64,6 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.newTotalAssets,
   );
 });
 
@@ -96,8 +95,8 @@ ponder.on("MorphoV2:Deposit", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set((row) => ({ totalAssets: row.totalAssets + event.args.assets }));
 
-  // Update state and create checkpoint
-  await checkpointManager.handleDeposit(
+  // Create checkpoint
+  await checkpointManager.handleAccountingEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -138,8 +137,8 @@ ponder.on("MorphoV2:Withdraw", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set((row) => ({ totalAssets: row.totalAssets - event.args.assets }));
 
-  // Update state and create checkpoint
-  await checkpointManager.handleWithdraw(
+  // Create checkpoint
+  await checkpointManager.handleAccountingEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -183,7 +182,7 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
       .set((row) => ({ totalSupply: row.totalSupply + event.args.shares }));
 
     // Mint: totalSupply += shares
-    await checkpointManager.handleMint(
+    await checkpointManager.handleAccountingEvent(
       context,
       context.chain.id,
       event.log.address,
@@ -200,7 +199,7 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
       .set((row) => ({ totalSupply: row.totalSupply - event.args.shares }));
 
     // Burn: totalSupply -= shares
-    await checkpointManager.handleBurn(
+    await checkpointManager.handleAccountingEvent(
       context,
       context.chain.id,
       event.log.address,

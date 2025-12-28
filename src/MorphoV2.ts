@@ -2,6 +2,7 @@ import { ponder } from "ponder:registry";
 import {
   vaultV2,
   adapterPenalty,
+  identifierState,
   ownerSetEvent,
   curatorSetEvent,
   sentinelSetEvent,
@@ -22,9 +23,12 @@ import {
   relativeCapChangeEvent,
   maxRateSetEvent,
   forceDeallocatePenaltySetEvent,
+  allocateEvent,
+  deallocateEvent,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
+import { capCheckpointManager } from "./CapCheckpointManager";
 
 /**
  * @dev Morpho V2 Event Handlers
@@ -521,8 +525,8 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ performanceFee: event.args.newPerformanceFee });
 
-  // Update checkpoint state and create checkpoint
-  await checkpointManager.handlePerformanceFeeChange(
+  // Create checkpoint
+  await checkpointManager.handleConfigEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -531,7 +535,6 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.newPerformanceFee,
   );
 });
 
@@ -556,8 +559,8 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ performanceFeeRecipient: event.args.newPerformanceFeeRecipient });
 
-  // Update checkpoint state and create checkpoint
-  await checkpointManager.handlePerformanceFeeRecipientChange(
+  // Create checkpoint
+  await checkpointManager.handleConfigEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -566,7 +569,6 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.newPerformanceFeeRecipient,
   );
 });
 
@@ -591,8 +593,8 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ managementFee: event.args.newManagementFee });
 
-  // Update checkpoint state and create checkpoint
-  await checkpointManager.handleManagementFeeChange(
+  // Create checkpoint
+  await checkpointManager.handleConfigEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -601,7 +603,6 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.newManagementFee,
   );
 });
 
@@ -626,8 +627,8 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ managementFeeRecipient: event.args.newManagementFeeRecipient });
 
-  // Update checkpoint state and create checkpoint
-  await checkpointManager.handleManagementFeeRecipientChange(
+  // Create checkpoint
+  await checkpointManager.handleConfigEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -636,7 +637,6 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.newManagementFeeRecipient,
   );
 });
 
@@ -665,8 +665,8 @@ ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ maxRate: event.args.newMaxRate });
 
-  // Update checkpoint state and create checkpoint
-  await checkpointManager.handleMaxRateChange(
+  // Create checkpoint
+  await checkpointManager.handleConfigEvent(
     context,
     context.chain.id,
     event.log.address,
@@ -675,7 +675,6 @@ ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
-    event.args.newMaxRate,
   );
 });
 
@@ -733,6 +732,35 @@ ponder.on("MorphoV2:DecreaseAbsoluteCap", async ({ event, context }) => {
     idData: event.args.idData,
     newAbsoluteCap: event.args.newAbsoluteCap,
   });
+
+  // Update identifier state (upsert pattern)
+  await context.db
+    .insert(identifierState)
+    .values({
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      identifierHash: event.args.id,
+      absoluteCap: event.args.newAbsoluteCap,
+      relativeCap: 0n,
+      allocation: 0n,
+    })
+    .onConflictDoUpdate({
+      absoluteCap: event.args.newAbsoluteCap,
+    });
+
+  // Create checkpoint
+  await capCheckpointManager.handleCapOrAllocationChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    event.args.id,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.idData,
+  );
 });
 
 ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
@@ -754,6 +782,35 @@ ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
     idData: event.args.idData,
     newAbsoluteCap: event.args.newAbsoluteCap,
   });
+
+  // Update identifier state (upsert pattern)
+  await context.db
+    .insert(identifierState)
+    .values({
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      identifierHash: event.args.id,
+      absoluteCap: event.args.newAbsoluteCap,
+      relativeCap: 0n,
+      allocation: 0n,
+    })
+    .onConflictDoUpdate({
+      absoluteCap: event.args.newAbsoluteCap,
+    });
+
+  // Create checkpoint
+  await capCheckpointManager.handleCapOrAllocationChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    event.args.id,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.idData,
+  );
 });
 
 ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
@@ -775,6 +832,35 @@ ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
     idData: event.args.idData,
     newRelativeCap: event.args.newRelativeCap,
   });
+
+  // Update identifier state (upsert pattern)
+  await context.db
+    .insert(identifierState)
+    .values({
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      identifierHash: event.args.id,
+      absoluteCap: 0n,
+      relativeCap: event.args.newRelativeCap,
+      allocation: 0n,
+    })
+    .onConflictDoUpdate({
+      relativeCap: event.args.newRelativeCap,
+    });
+
+  // Create checkpoint
+  await capCheckpointManager.handleCapOrAllocationChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    event.args.id,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.idData,
+  );
 });
 
 ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
@@ -796,8 +882,147 @@ ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
     idData: event.args.idData,
     newRelativeCap: event.args.newRelativeCap,
   });
-  
+
+  // Update identifier state (upsert pattern)
+  await context.db
+    .insert(identifierState)
+    .values({
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      identifierHash: event.args.id,
+      absoluteCap: 0n,
+      relativeCap: event.args.newRelativeCap,
+      allocation: 0n,
+    })
+    .onConflictDoUpdate({
+      relativeCap: event.args.newRelativeCap,
+    });
+
+  // Create checkpoint
+  await capCheckpointManager.handleCapOrAllocationChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    event.args.id,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.idData,
+  );
 });
 
+/*//////////////////////////////////////////////////////////////
+                    ALLOCATION EVENTS
+//////////////////////////////////////////////////////////////*/
 
+ponder.on("MorphoV2:Allocate", async ({ event, context }) => {
+  const baseEventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Insert event record (single record for the entire allocation transaction)
+  await context.db.insert(allocateEvent).values({
+    id: baseEventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
+    logIndex: event.log.logIndex,
+    sender: event.args.sender,
+    adapter: event.args.adapter,
+    assets: event.args.assets,
+    change: event.args.change,
+  });
+
+  // Loop through each id in the ids[] array
+  for (let i = 0; i < event.args.ids.length; i++) {
+    const identifierHash = event.args.ids[i]!;
+    const checkpointId = `${baseEventId}-${i}`;
+
+    // Update identifier state - increment allocation
+    await context.db
+      .insert(identifierState)
+      .values({
+        chainId: context.chain.id,
+        vaultAddress: event.log.address,
+        identifierHash,
+        absoluteCap: 0n,
+        relativeCap: 0n,
+        allocation: event.args.change, // For new records
+      })
+      .onConflictDoUpdate((row) => ({
+        allocation: row.allocation + event.args.change,
+      }));
+
+    // Create checkpoint (identifierData = null for allocation events)
+    await capCheckpointManager.handleCapOrAllocationChange(
+      context,
+      context.chain.id,
+      event.log.address,
+      identifierHash,
+      checkpointId,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      null, // identifierData is null for allocation events
+    );
+  }
+});
+
+ponder.on("MorphoV2:Deallocate", async ({ event, context }) => {
+  const baseEventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Insert event record (single record for the entire deallocation transaction)
+  await context.db.insert(deallocateEvent).values({
+    id: baseEventId,
+    chainId: context.chain.id,
+    vaultAddress: event.log.address,
+    blockNumber: event.block.number,
+    blockTimestamp: event.block.timestamp,
+    transactionHash: event.transaction.hash,
+    transactionIndex: event.transaction.transactionIndex,
+    logIndex: event.log.logIndex,
+    sender: event.args.sender,
+    adapter: event.args.adapter,
+    assets: event.args.assets,
+    change: event.args.change,
+  });
+
+  // Loop through each id in the ids[] array
+  for (let i = 0; i < event.args.ids.length; i++) {
+    const identifierHash = event.args.ids[i]!;
+    const checkpointId = `${baseEventId}-${i}`;
+
+    // Update identifier state - decrement allocation (change is typically negative)
+    await context.db
+      .insert(identifierState)
+      .values({
+        chainId: context.chain.id,
+        vaultAddress: event.log.address,
+        identifierHash,
+        absoluteCap: 0n,
+        relativeCap: 0n,
+        allocation: event.args.change, // For new records
+      })
+      .onConflictDoUpdate((row) => ({
+        allocation: row.allocation + event.args.change,
+      }));
+
+    // Create checkpoint (identifierData = null for allocation events)
+    await capCheckpointManager.handleCapOrAllocationChange(
+      context,
+      context.chain.id,
+      event.log.address,
+      identifierHash,
+      checkpointId,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      null, // identifierData is null for allocation events
+    );
+  }
+});

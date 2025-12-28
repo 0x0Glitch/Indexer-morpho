@@ -530,6 +530,80 @@ export const MorphoV2Abi = [
       {
         indexed: true,
         internalType: "address",
+        name: "adapter",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "assets",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32[]",
+        name: "ids",
+        type: "bytes32[]",
+      },
+      {
+        indexed: false,
+        internalType: "int256",
+        name: "change",
+        type: "int256",
+      },
+    ],
+    name: "Allocate",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
+        name: "adapter",
+        type: "address",
+      },
+      {
+        indexed: false,
+        internalType: "uint256",
+        name: "assets",
+        type: "uint256",
+      },
+      {
+        indexed: false,
+        internalType: "bytes32[]",
+        name: "ids",
+        type: "bytes32[]",
+      },
+      {
+        indexed: false,
+        internalType: "int256",
+        name: "change",
+        type: "int256",
+      },
+    ],
+    name: "Deallocate",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      {
+        indexed: true,
+        internalType: "address",
+        name: "sender",
+        type: "address",
+      },
+      {
+        indexed: true,
+        internalType: "address",
         name: "onBehalf",
         type: "address",
       },

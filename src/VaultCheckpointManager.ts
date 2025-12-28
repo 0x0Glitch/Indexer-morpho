@@ -6,20 +6,17 @@ import { zeroAddress } from "viem";
 /**
  * @dev VaultCheckpointManager
  *
- * Helper class for managing vault state checkpoints.
- * This class uses a stateless, event-driven approach where state is derived
- * from the vault table config.
+ * Manages the append-only vaultCheckpoint table for historical reconstruction.
+ *
+ * Architecture:
+ * - vaultV2 table: Current state (1 row per vault, updated in place)
+ * - vaultCheckpoint table: Complete history (append-only snapshots)
  *
  * Key features:
- * - Stateless - relies on Ponder's ordered event processing
+ * - Stateless - queries current state from vaultV2 table
  * - Creates checkpoints on accounting events and config changes
  * - Enables point-in-time queries via "state as-of timestamp"
  * - Safe for distributed deployments
- *
- * This works because:
- * 1. AccrueInterest provides the new totalAssets directly
- * 2. Deposits/Withdraws are deltas that we track
- * 3. Mint/Burns are deltas for totalSupply
  */
 
 export interface VaultState {
@@ -35,7 +32,7 @@ export interface VaultState {
 
 export class VaultCheckpointManager {
   /**
-   * Get current vault state from vault table
+   * Get current vault state from vaultV2 table
    */
   private async getCurrentState(
     context: Context,
@@ -107,40 +104,10 @@ export class VaultCheckpointManager {
   }
 
   /**
-   * Handle AccrueInterest: sets totalAssets directly from event
+   * Handle accounting events - reads current state from vaultV2 table
+   * (after it has been updated by the event handler)
    */
-  async handleAccrueInterest(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-    newTotalAssets: bigint,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.totalAssets = newTotalAssets;
-    state.lastUpdateTimestamp = blockTimestamp;
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  /**
-   * Handle Deposit: reads current state from vault table
-   */
-  async handleDeposit(
+  async handleAccountingEvent(
     context: Context,
     chainId: number,
     vaultAddress: Hex,
@@ -166,9 +133,10 @@ export class VaultCheckpointManager {
   }
 
   /**
-   * Handle Withdraw: reads current state from vault table
+   * Handle config events - reads current state from vaultV2 table
+   * (after it has been updated by the event handler)
    */
-  async handleWithdraw(
+  async handleConfigEvent(
     context: Context,
     chainId: number,
     vaultAddress: Hex,
@@ -179,200 +147,6 @@ export class VaultCheckpointManager {
     logIndex: number,
   ): Promise<void> {
     const state = await this.getCurrentState(context, chainId, vaultAddress);
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  /**
-   * Handle Mint: reads current state from vault table
-   */
-  async handleMint(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  /**
-   * Handle Burn: reads current state from vault table
-   */
-  async handleBurn(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  /**
-   * Handle config changes - these don't need previous state
-   */
-  async handleMaxRateChange(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-    newMaxRate: bigint,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.maxRate = newMaxRate;
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  async handlePerformanceFeeChange(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-    newPerformanceFee: bigint,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.performanceFee = newPerformanceFee;
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  async handleManagementFeeChange(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-    newManagementFee: bigint,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.managementFee = newManagementFee;
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  async handlePerformanceFeeRecipientChange(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-    newPerformanceFeeRecipient: Hex,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.performanceFeeRecipient = newPerformanceFeeRecipient;
-
-    await this.createCheckpoint(
-      context,
-      chainId,
-      vaultAddress,
-      eventId,
-      blockNumber,
-      blockTimestamp,
-      transactionHash,
-      logIndex,
-      state,
-    );
-  }
-
-  async handleManagementFeeRecipientChange(
-    context: Context,
-    chainId: number,
-    vaultAddress: Hex,
-    eventId: string,
-    blockNumber: bigint,
-    blockTimestamp: bigint,
-    transactionHash: Hex,
-    logIndex: number,
-    newManagementFeeRecipient: Hex,
-  ): Promise<void> {
-    const state = await this.getCurrentState(context, chainId, vaultAddress);
-    state.managementFeeRecipient = newManagementFeeRecipient;
 
     await this.createCheckpoint(
       context,

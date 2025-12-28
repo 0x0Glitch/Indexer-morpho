@@ -80,6 +80,26 @@ export const adapterPenalty = onchainTable(
   }),
 );
 
+export const identifierState = onchainTable(
+  "identifier_state",
+  (t) => ({
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    identifierHash: t.hex().notNull(),
+
+    // Current cap state
+    absoluteCap: t.bigint().notNull().default(0n),
+    relativeCap: t.bigint().notNull().default(0n),
+
+    // Current allocation
+    allocation: t.bigint().notNull().default(0n),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.chainId, table.vaultAddress, table.identifierHash] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+  }),
+);
+
 /*//////////////////////////////////////////////////////////////
                           EVENT TABLES
 //////////////////////////////////////////////////////////////*/
@@ -612,6 +632,56 @@ export const transferEvent = onchainTable(
   }),
 );
 
+export const allocateEvent = onchainTable(
+  "allocate_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    sender: t.hex().notNull(),
+    adapter: t.hex().notNull(),
+    assets: t.bigint().notNull(),
+    change: t.bigint().notNull(), // int256 stored as bigint (can be negative)
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    senderIdx: index().on(table.sender),
+    adapterIdx: index().on(table.adapter),
+  }),
+);
+
+export const deallocateEvent = onchainTable(
+  "deallocate_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    sender: t.hex().notNull(),
+    adapter: t.hex().notNull(),
+    assets: t.bigint().notNull(),
+    change: t.bigint().notNull(), // int256 stored as bigint (can be negative)
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    senderIdx: index().on(table.sender),
+    adapterIdx: index().on(table.adapter),
+  }),
+);
+
 /*//////////////////////////////////////////////////////////////
                     VAULT CHECKPOINT METRICS
 //////////////////////////////////////////////////////////////*/
@@ -650,5 +720,43 @@ export const vaultCheckpoint = onchainTable(
     timestampIdx: index().on(table.blockTimestamp),
     // Composite index for point-in-time queries
     vaultTimestampIdx: index().on(table.chainId, table.vaultAddress, table.blockTimestamp),
+  }),
+);
+
+/*//////////////////////////////////////////////////////////////
+                    CAP & ALLOCATION CHECKPOINT
+//////////////////////////////////////////////////////////////*/
+
+export const capCheckpoint = onchainTable(
+  "cap_checkpoint",
+  (t) => ({
+    // Primary key is the unique event ID
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+
+    // Identifier for this cap/allocation state
+    identifierHash: t.hex().notNull(),
+    identifierData: t.text(), // Optional: idData from cap events, null for allocate/deallocate
+
+    // Checkpoint metadata
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    logIndex: t.integer().notNull(),
+
+    // Cap state snapshot
+    absoluteCap: t.bigint().notNull(),
+    relativeCap: t.bigint().notNull(),
+
+    // Allocation state snapshot
+    allocation: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdIdx: index().on(table.chainId, table.vaultAddress, table.identifierHash),
+    timestampIdx: index().on(table.blockTimestamp),
+    // Composite index for point-in-time queries per identifier
+    vaultIdTimestampIdx: index().on(table.chainId, table.vaultAddress, table.identifierHash, table.blockTimestamp),
   }),
 );
