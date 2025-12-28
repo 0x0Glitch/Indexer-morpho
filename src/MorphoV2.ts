@@ -24,6 +24,7 @@ import {
   forceDeallocatePenaltySetEvent,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
+import { checkpointManager } from "./VaultCheckpointManager";
 
 /**
  * @dev Morpho V2 Event Handlers
@@ -519,6 +520,19 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ performanceFee: event.args.newPerformanceFee });
+
+  // Update checkpoint state and create checkpoint
+  await checkpointManager.handlePerformanceFeeChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.newPerformanceFee,
+  );
 });
 
 ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
@@ -541,6 +555,19 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ performanceFeeRecipient: event.args.newPerformanceFeeRecipient });
+
+  // Update checkpoint state and create checkpoint
+  await checkpointManager.handlePerformanceFeeRecipientChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.newPerformanceFeeRecipient,
+  );
 });
 
 ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
@@ -563,6 +590,19 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ managementFee: event.args.newManagementFee });
+
+  // Update checkpoint state and create checkpoint
+  await checkpointManager.handleManagementFeeChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.newManagementFee,
+  );
 });
 
 ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
@@ -585,6 +625,19 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ managementFeeRecipient: event.args.newManagementFeeRecipient });
+
+  // Update checkpoint state and create checkpoint
+  await checkpointManager.handleManagementFeeRecipientChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.newManagementFeeRecipient,
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -611,6 +664,19 @@ ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ maxRate: event.args.newMaxRate });
+
+  // Update checkpoint state and create checkpoint
+  await checkpointManager.handleMaxRateChange(
+    context,
+    context.chain.id,
+    event.log.address,
+    eventId,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    event.args.newMaxRate,
+  );
 });
 
 ponder.on("MorphoV2:SetForceDeallocatePenalty", async ({ event, context }) => {
@@ -730,5 +796,8 @@ ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
     idData: event.args.idData,
     newRelativeCap: event.args.newRelativeCap,
   });
+  
 });
+
+
 

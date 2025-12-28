@@ -53,6 +53,11 @@ export const vaultV2 = onchainTable(
     // Metadata
     name: t.text().notNull(),
     symbol: t.text().notNull(),
+
+    // Accounting state (for checkpoint generation)
+    totalAssets: t.bigint().notNull().default(0n),
+    totalSupply: t.bigint().notNull().default(0n),
+    lastUpdateTimestamp: t.bigint().notNull().default(0n),
   }),
   (table) => ({
     // Composite primary key uniquely identifies a vault across chains
@@ -500,5 +505,150 @@ export const forceDeallocatePenaltySetEvent = onchainTable(
     pk: primaryKey({ columns: [table.id] }),
     vaultIdx: index().on(table.chainId, table.vaultAddress),
     adapterIdx: index().on(table.adapter),
+  }),
+);
+
+/*//////////////////////////////////////////////////////////////
+                    ACCOUNTING EVENT TABLES
+//////////////////////////////////////////////////////////////*/
+
+export const accrueInterestEvent = onchainTable(
+  "accrue_interest_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    previousTotalAssets: t.bigint().notNull(),
+    newTotalAssets: t.bigint().notNull(),
+    performanceFeeShares: t.bigint().notNull(),
+    managementFeeShares: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    timestampIdx: index().on(table.blockTimestamp),
+  }),
+);
+
+export const depositEvent = onchainTable(
+  "deposit_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    sender: t.hex().notNull(),
+    onBehalf: t.hex().notNull(),
+    assets: t.bigint().notNull(),
+    shares: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    senderIdx: index().on(table.sender),
+    onBehalfIdx: index().on(table.onBehalf),
+  }),
+);
+
+export const withdrawEvent = onchainTable(
+  "withdraw_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    sender: t.hex().notNull(),
+    receiver: t.hex().notNull(),
+    onBehalf: t.hex().notNull(),
+    assets: t.bigint().notNull(),
+    shares: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    senderIdx: index().on(table.sender),
+    receiverIdx: index().on(table.receiver),
+    onBehalfIdx: index().on(table.onBehalf),
+  }),
+);
+
+export const transferEvent = onchainTable(
+  "transfer_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    from: t.hex().notNull(),
+    to: t.hex().notNull(),
+    shares: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    fromIdx: index().on(table.from),
+    toIdx: index().on(table.to),
+  }),
+);
+
+/*//////////////////////////////////////////////////////////////
+                    VAULT CHECKPOINT METRICS
+//////////////////////////////////////////////////////////////*/
+
+export const vaultCheckpoint = onchainTable(
+  "vault_checkpoint",
+  (t) => ({
+    // Primary key is the event ID that triggered this checkpoint
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+
+    // Checkpoint metadata
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    logIndex: t.integer().notNull(),
+
+    // Snapshot of vault state at this point
+    totalAssets: t.bigint().notNull(),
+    totalSupply: t.bigint().notNull(),
+
+    // Configuration snapshot (for valuation)
+    maxRate: t.bigint().notNull(),
+    performanceFee: t.bigint().notNull(),
+    managementFee: t.bigint().notNull(),
+    performanceFeeRecipient: t.hex().notNull(),
+    managementFeeRecipient: t.hex().notNull(),
+
+    // Last update timestamp from AccrueInterest
+    lastUpdateTimestamp: t.bigint().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    timestampIdx: index().on(table.blockTimestamp),
+    // Composite index for point-in-time queries
+    vaultTimestampIdx: index().on(table.chainId, table.vaultAddress, table.blockTimestamp),
   }),
 );
