@@ -3,6 +3,9 @@ import { createLogger } from "./utils/logger";
 
 const logger = createLogger({ module: "HistoricalSnapshotManager" });
 
+// Precision constant for share price calculations (18 decimals)
+const WAD = 1_000_000_000_000_000_000n;
+
 /**
  * Historical Snapshot Manager
  *
@@ -81,10 +84,10 @@ export class HistoricalSnapshotManager {
       totalAllocated += identifier.allocation;
     }
 
-    // Calculate share price (scaled by 1e18 for precision)
+    // Calculate share price (scaled by WAD = 1e18 for precision)
     const sharePrice = vault.totalSupply > 0n
-      ? (vault.totalAssets * BigInt(1e18)) / vault.totalSupply
-      : BigInt(1e18); // 1:1 if no supply
+      ? (vault.totalAssets * WAD) / vault.totalSupply
+      : WAD; // 1:1 if no supply
 
     // Create new snapshot - copy from previous or use current vault state
     const newSnapshot = {
