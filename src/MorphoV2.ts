@@ -821,6 +821,26 @@ ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
     event.transaction.hash,
   );
 
+  // IMPORTANT: event.args.newLiquidityData is indexed in the event, so it only contains the keccak256 hash.
+  // We need to fetch the real liquidityData from the contract's state.
+  const realLiquidityData = await context.client.readContract({
+    abi: [
+      {
+        inputs: [],
+        name: "liquidityData",
+        outputs: [{ internalType: "bytes", name: "", type: "bytes" }],
+        stateMutability: "view",
+        type: "function",
+      },
+    ],
+    address: event.log.address,
+    functionName: "liquidityData",
+    blockNumber: event.block.number,
+  });
+
+  // Convert bytes to hex string for storage
+  const liquidityDataHex = realLiquidityData as `0x${string}`;
+
   // Insert event record
   await context.db.insert(liquidityAdapterSetEvent).values({
     id: eventId,
@@ -833,15 +853,16 @@ ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
     logIndex: event.log.logIndex,
     sender: event.args.sender,
     newLiquidityAdapter: event.args.newLiquidityAdapter,
-    newLiquidityData: event.args.newLiquidityData,
+    newLiquidityDataTopic: event.args.newLiquidityData, // The hash from event topic
+    newLiquidityData: liquidityDataHex, // The real data from contract state
   });
 
-  // Update vault state
+  // Update vault state with the real liquidityData
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({
       liquidityAdapter: event.args.newLiquidityAdapter,
-      liquidityData: event.args.newLiquidityData,
+      liquidityData: liquidityDataHex,
     });
 });
 

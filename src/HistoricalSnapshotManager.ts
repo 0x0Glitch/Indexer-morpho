@@ -1,5 +1,6 @@
 import { vaultV2, identifierState, vaultMetricsHistorical } from "ponder:schema";
 import { createLogger } from "./utils/logger";
+import { MorphoV2Abi } from "../abis/MorphoV2Abi";
 
 const logger = createLogger({ module: "HistoricalSnapshotManager" });
 
@@ -84,10 +85,32 @@ export class HistoricalSnapshotManager {
       totalAllocated += identifier.allocation;
     }
 
-    // Calculate share price (scaled by WAD = 1e18 for precision)
-    const sharePrice = vault.totalSupply > 0n
+    // Calculate raw share price (simple ratio, informational only)
+    const rawSharePrice = vault.totalSupply > 0n
       ? (vault.totalAssets * WAD) / vault.totalSupply
       : WAD; // 1:1 if no supply
+
+    // Fetch canonical ERC4626 share price from contract using Ponder's readContract
+    // This accounts for virtualShares and follows convertToAssets(1e18) semantics
+    let sharePrice = WAD; // Default 1:1
+    try {
+      // Use Ponder's context.client to read convertToAssets(1e18)
+      // This gives us the canonical VaultV2 price with virtualShares
+      sharePrice = await context.client.readContract({
+        address: vaultAddress,
+        abi: MorphoV2Abi,
+        functionName: "convertToAssets",
+        args: [WAD],
+        blockNumber,
+      }) as bigint;
+    } catch (error) {
+      logger.warn({
+        vaultAddress,
+        blockNumber: blockNumber.toString(),
+        error,
+      }, "Failed to fetch canonical sharePrice from contract, using rawSharePrice");
+      sharePrice = rawSharePrice; // Fallback to raw calculation
+    }
 
     // Create new snapshot - copy from previous or use current vault state
     const newSnapshot = {
@@ -105,7 +128,8 @@ export class HistoricalSnapshotManager {
       // Accounting metrics (always use current values)
       totalAssets: vault.totalAssets,
       totalSupply: vault.totalSupply,
-      sharePrice,
+      rawSharePrice, // Simple ratio for reference
+      sharePrice,    // Canonical ERC4626 price from contract
       lastUpdateTimestamp: vault.lastUpdateTimestamp,
 
       // Allocations & caps (always use current values)
@@ -170,6 +194,12 @@ export class HistoricalSnapshotManager {
           current: newSnapshot.sharePrice.toString(),
         };
       }
+      if (newSnapshot.rawSharePrice !== previousSnapshot.rawSharePrice) {
+        changes.rawSharePrice = {
+          previous: previousSnapshot.rawSharePrice.toString(),
+          current: newSnapshot.rawSharePrice.toString(),
+        };
+      }
 
       logger.info({
         eventType,
@@ -186,6 +216,7 @@ export class HistoricalSnapshotManager {
         transactionHash,
         totalAssets: vault.totalAssets.toString(),
         totalAllocated: totalAllocated.toString(),
+        rawSharePrice: rawSharePrice.toString(),
         sharePrice: sharePrice.toString(),
       }, "First historical snapshot created");
     }

@@ -348,6 +348,9 @@ export const liquidityAdapterSetEvent = onchainTable(
 
     sender: t.hex().notNull(),
     newLiquidityAdapter: t.hex().notNull(),
+    // IMPORTANT: Because newLiquidityData is indexed in the event, this stores only the keccak256 hash
+    newLiquidityDataTopic: t.hex().notNull(), // The hash from the event topic
+    // The actual liquidityData fetched from the contract's liquidityData() getter
     newLiquidityData: t.text().notNull(),
   }),
   (table) => ({
@@ -789,7 +792,13 @@ export const vaultMetricsHistorical = onchainTable(
     // ========== ACCOUNTING METRICS ==========
     totalAssets: t.bigint().notNull(),
     totalSupply: t.bigint().notNull(),
-    sharePrice: t.bigint().notNull(), // totalAssets / totalSupply (scaled by 1e18)
+
+    // Share price metrics (both scaled by 1e18)
+    // Raw price: simple totalAssets / totalSupply (informational only)
+    rawSharePrice: t.bigint().notNull(),
+    // ERC4626 price: actual convertToAssets(1e18) from contract (canonical)
+    sharePrice: t.bigint().notNull(),
+
     lastUpdateTimestamp: t.bigint().notNull(),
 
     // ========== ALLOCATIONS SNAPSHOT ==========
