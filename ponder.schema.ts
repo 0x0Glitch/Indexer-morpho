@@ -840,3 +840,56 @@ export const vaultMetricsHistorical = onchainTable(
     eventTypeIdx: index().on(table.eventType),
   }),
 );
+
+/*//////////////////////////////////////////////////////////////
+                    VAULT ACCOUNT (DEPOSITORS)
+//////////////////////////////////////////////////////////////*/
+
+/**
+ * Current state of each account that has interacted with a vault.
+ * Tracks current share balances (derived from ERC20 Transfer events)
+ * and cumulative deposit/withdraw metrics.
+ *
+ * This is the "current depositors table" - query it to get:
+ * - Current share holders and their balances
+ * - Lifetime deposit/withdraw activity per account
+ * - Net position calculations
+ */
+export const vaultAccount = onchainTable(
+  "vault_account",
+  (t) => ({
+    // Composite primary key
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    accountAddress: t.hex().notNull(),
+
+    // ========== CURRENT SHARE BALANCE ==========
+    // Maintained by Transfer events (mint/burn/transfer)
+    // Always accurate reflection of ERC20 share balance
+    sharesBalance: t.bigint().notNull().default(0n),
+
+    // ========== DEPOSIT METRICS ==========
+    depositCount: t.integer().notNull().default(0),
+    totalDepositedAssets: t.bigint().notNull().default(0n),
+    totalDepositedShares: t.bigint().notNull().default(0n),
+
+    // ========== WITHDRAW METRICS ==========
+    withdrawCount: t.integer().notNull().default(0),
+    totalWithdrawnAssets: t.bigint().notNull().default(0n),
+    totalWithdrawnShares: t.bigint().notNull().default(0n),
+
+    // ========== TRACKING METADATA ==========
+    firstSeenBlockNumber: t.bigint().notNull(),
+    firstSeenBlockTimestamp: t.bigint().notNull(),
+    lastSeenBlockNumber: t.bigint().notNull(),
+    lastSeenBlockTimestamp: t.bigint().notNull(),
+    lastTransactionHash: t.hex().notNull(),
+    lastLogIndex: t.integer().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.chainId, table.vaultAddress, table.accountAddress] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    sharesBalanceIdx: index().on(table.chainId, table.vaultAddress, table.sharesBalance),
+    accountIdx: index().on(table.accountAddress),
+  }),
+);

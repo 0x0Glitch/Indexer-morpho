@@ -5,6 +5,7 @@ import {
   withdrawEvent,
   transferEvent,
   vaultV2,
+  vaultAccount,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
@@ -170,6 +171,34 @@ ponder.on("MorphoV2:Deposit", async ({ event, context }) => {
       .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
       .set((row) => ({ totalAssets: row.totalAssets + event.args.assets }));
 
+    // Update vault account deposit metrics
+    await context.db
+      .insert(vaultAccount)
+      .values({
+        chainId: context.chain.id,
+        vaultAddress: event.log.address,
+        accountAddress: event.args.onBehalf,
+        sharesBalance: 0n, // balance comes from Transfer handler
+        depositCount: 1,
+        totalDepositedAssets: event.args.assets,
+        totalDepositedShares: event.args.shares,
+        firstSeenBlockNumber: event.block.number,
+        firstSeenBlockTimestamp: event.block.timestamp,
+        lastSeenBlockNumber: event.block.number,
+        lastSeenBlockTimestamp: event.block.timestamp,
+        lastTransactionHash: event.transaction.hash,
+        lastLogIndex: event.log.logIndex,
+      })
+      .onConflictDoUpdate((row) => ({
+        depositCount: row.depositCount + 1,
+        totalDepositedAssets: row.totalDepositedAssets + event.args.assets,
+        totalDepositedShares: row.totalDepositedShares + event.args.shares,
+        lastSeenBlockNumber: event.block.number,
+        lastSeenBlockTimestamp: event.block.timestamp,
+        lastTransactionHash: event.transaction.hash,
+        lastLogIndex: event.log.logIndex,
+      }));
+
     // Create checkpoint
     await checkpointManager.handleAccountingEvent(
       context,
@@ -245,6 +274,34 @@ ponder.on("MorphoV2:Withdraw", async ({ event, context }) => {
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set((row) => ({ totalAssets: row.totalAssets - event.args.assets }));
 
+  // Update vault account withdraw metrics
+  await context.db
+    .insert(vaultAccount)
+    .values({
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      accountAddress: event.args.onBehalf,
+      sharesBalance: 0n, // balance comes from Transfer handler
+      withdrawCount: 1,
+      totalWithdrawnAssets: event.args.assets,
+      totalWithdrawnShares: event.args.shares,
+      firstSeenBlockNumber: event.block.number,
+      firstSeenBlockTimestamp: event.block.timestamp,
+      lastSeenBlockNumber: event.block.number,
+      lastSeenBlockTimestamp: event.block.timestamp,
+      lastTransactionHash: event.transaction.hash,
+      lastLogIndex: event.log.logIndex,
+    })
+    .onConflictDoUpdate((row) => ({
+      withdrawCount: row.withdrawCount + 1,
+      totalWithdrawnAssets: row.totalWithdrawnAssets + event.args.assets,
+      totalWithdrawnShares: row.totalWithdrawnShares + event.args.shares,
+      lastSeenBlockNumber: event.block.number,
+      lastSeenBlockTimestamp: event.block.timestamp,
+      lastTransactionHash: event.transaction.hash,
+      lastLogIndex: event.log.logIndex,
+    }));
+
   // Create checkpoint
   await checkpointManager.handleAccountingEvent(
     context,
@@ -277,85 +334,129 @@ ponder.on("MorphoV2:Withdraw", async ({ event, context }) => {
 
 ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
-  const isMint = event.args.from === zeroAddress;
-  const isBurn = event.args.to === zeroAddress;
+  const chainId = context.chain.id;
+  const vaultAddress = event.log.address;
+  const from = event.args.from;
+  const to = event.args.to;
+  const shares = event.args.shares;
+  const blockNumber = event.block.number;
+  const blockTimestamp = event.block.timestamp;
+  const txHash = event.transaction.hash;
+  const logIndex = event.log.logIndex;
+
+  const isMint = from === zeroAddress;
+  const isBurn = to === zeroAddress;
 
   // Insert event record
   await context.db.insert(transferEvent).values({
     id: eventId,
-    chainId: context.chain.id,
-    vaultAddress: event.log.address,
-    blockNumber: event.block.number,
-    blockTimestamp: event.block.timestamp,
-    transactionHash: event.transaction.hash,
+    chainId,
+    vaultAddress,
+    blockNumber,
+    blockTimestamp,
+    transactionHash: txHash,
     transactionIndex: event.transaction.transactionIndex,
-    logIndex: event.log.logIndex,
-    from: event.args.from,
-    to: event.args.to,
-    shares: event.args.shares,
+    logIndex,
+    from,
+    to,
+    shares,
   });
+
+  // Helper: upsert + delta update for share balances
+  async function applyShareDelta(accountAddress: `0x${string}`, delta: bigint) {
+    if (accountAddress === zeroAddress) return;
+
+    await context.db
+      .insert(vaultAccount)
+      .values({
+        chainId,
+        vaultAddress,
+        accountAddress,
+        sharesBalance: delta, // on insert, start at delta
+        firstSeenBlockNumber: blockNumber,
+        firstSeenBlockTimestamp: blockTimestamp,
+        lastSeenBlockNumber: blockNumber,
+        lastSeenBlockTimestamp: blockTimestamp,
+        lastTransactionHash: txHash,
+        lastLogIndex: logIndex,
+      })
+      .onConflictDoUpdate((row) => ({
+        sharesBalance: row.sharesBalance + delta,
+        lastSeenBlockNumber: blockNumber,
+        lastSeenBlockTimestamp: blockTimestamp,
+        lastTransactionHash: txHash,
+        lastLogIndex: logIndex,
+      }));
+  }
+
+  // Update share balances for all transfers (mint, burn, transfer)
+  // from loses shares (unless mint)
+  if (from !== zeroAddress) await applyShareDelta(from, -shares);
+  // to gains shares (unless burn)
+  if (to !== zeroAddress) await applyShareDelta(to, shares);
 
   // Only create checkpoints for mint and burn (totalSupply changes)
   if (isMint) {
     // Update vault table accounting state
     await context.db
-      .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
-      .set((row) => ({ totalSupply: row.totalSupply + event.args.shares }));
+      .update(vaultV2, { chainId, address: vaultAddress })
+      .set((row) => ({ totalSupply: row.totalSupply + shares }));
 
     // Mint: totalSupply += shares
     await checkpointManager.handleAccountingEvent(
       context,
-      context.chain.id,
-      event.log.address,
+      chainId,
+      vaultAddress,
       eventId,
-      event.block.number,
-      event.block.timestamp,
-      event.transaction.hash,
-      event.log.logIndex,
+      blockNumber,
+      blockTimestamp,
+      txHash,
+      logIndex,
     );
 
     // Create historical snapshot
     await HistoricalSnapshotManager.createSnapshot(
       context,
-      context.chain.id,
-      event.log.address,
+      chainId,
+      vaultAddress,
       `${eventId}-snapshot`,
-      event.block.number,
-      event.block.timestamp,
-      event.transaction.hash,
-      event.log.logIndex,
+      blockNumber,
+      blockTimestamp,
+      txHash,
+      logIndex,
       "Transfer",
     );
   } else if (isBurn) {
     // Update vault table accounting state
     await context.db
-      .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
-      .set((row) => ({ totalSupply: row.totalSupply - event.args.shares }));
+      .update(vaultV2, { chainId, address: vaultAddress })
+      .set((row) => ({ totalSupply: row.totalSupply - shares }));
 
     // Burn: totalSupply -= shares
     await checkpointManager.handleAccountingEvent(
       context,
-      context.chain.id,
-      event.log.address,
+      chainId,
+      vaultAddress,
       eventId,
-      event.block.number,
-      event.block.timestamp,
-      event.transaction.hash,
-      event.log.logIndex,
+      blockNumber,
+      blockTimestamp,
+      txHash,
+      logIndex,
     );
 
     // Create historical snapshot
     await HistoricalSnapshotManager.createSnapshot(
       context,
-      context.chain.id,
-      event.log.address,
+      chainId,
+      vaultAddress,
       `${eventId}-snapshot`,
-      event.block.number,
-      event.block.timestamp,
-      event.transaction.hash,
-      event.log.logIndex,
+      blockNumber,
+      blockTimestamp,
+      txHash,
+      logIndex,
       "Transfer",
     );
   }
   // Regular transfers (from != 0x0 && to != 0x0) do not change totalSupply, so no checkpoint needed
+  // But we still update share balances above
 });
