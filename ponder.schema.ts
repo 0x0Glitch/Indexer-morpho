@@ -803,6 +803,7 @@ export const vaultMetricsHistorical = onchainTable(
 
     // ========== ALLOCATIONS SNAPSHOT ==========
     // JSON object: { "identifierHash": allocation }
+ 
     allocations: t.json().notNull().$type<Record<string, string>>().default({}),
 
     // JSON object: { "identifierHash": absoluteCap }
@@ -810,9 +811,6 @@ export const vaultMetricsHistorical = onchainTable(
 
     // JSON object: { "identifierHash": relativeCap }
     relativeCaps: t.json().notNull().$type<Record<string, string>>().default({}),
-
-    // Total allocated across all adapters
-    totalAllocated: t.bigint().notNull().default(0n),
 
     // ========== CONFIGURATION SNAPSHOT ==========
     maxRate: t.bigint().notNull(),

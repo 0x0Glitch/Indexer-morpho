@@ -75,14 +75,12 @@ export class HistoricalSnapshotManager {
     const allocations: Record<string, string> = {};
     const absoluteCaps: Record<string, string> = {};
     const relativeCaps: Record<string, string> = {};
-    let totalAllocated = 0n;
 
     for (const identifier of identifiers) {
       const hash = identifier.identifierHash;
       allocations[hash] = identifier.allocation.toString();
       absoluteCaps[hash] = identifier.absoluteCap.toString();
       relativeCaps[hash] = identifier.relativeCap.toString();
-      totalAllocated += identifier.allocation;
     }
 
     // Calculate raw share price (simple ratio, informational only)
@@ -136,7 +134,6 @@ export class HistoricalSnapshotManager {
       allocations,
       absoluteCaps,
       relativeCaps,
-      totalAllocated,
 
       // Configuration (copy from previous if no change, otherwise use current)
       maxRate: vault.maxRate,
@@ -176,12 +173,6 @@ export class HistoricalSnapshotManager {
           current: newSnapshot.totalAssets.toString(),
         };
       }
-      if (newSnapshot.totalAllocated !== previousSnapshot.totalAllocated) {
-        changes.totalAllocated = {
-          previous: previousSnapshot.totalAllocated.toString(),
-          current: newSnapshot.totalAllocated.toString(),
-        };
-      }
       if (JSON.stringify(newSnapshot.allocators) !== JSON.stringify(previousSnapshot.allocators)) {
         changes.allocators = {
           previousCount: previousSnapshot.allocators.length,
@@ -215,7 +206,6 @@ export class HistoricalSnapshotManager {
         blockNumber: blockNumber.toString(),
         transactionHash,
         totalAssets: vault.totalAssets.toString(),
-        totalAllocated: totalAllocated.toString(),
         rawSharePrice: rawSharePrice.toString(),
         sharePrice: sharePrice.toString(),
       }, "First historical snapshot created");
