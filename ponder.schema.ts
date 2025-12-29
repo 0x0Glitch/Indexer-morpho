@@ -685,6 +685,34 @@ export const deallocateEvent = onchainTable(
   }),
 );
 
+export const forceDeallocateEvent = onchainTable(
+  "force_deallocate_event",
+  (t) => ({
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    transactionIndex: t.integer().notNull(),
+    logIndex: t.integer().notNull(),
+
+    sender: t.hex().notNull(),
+    adapter: t.hex().notNull(),
+    assets: t.bigint().notNull(),
+    onBehalf: t.hex().notNull(), // The allocator being forcibly deallocated
+    penaltyAssets: t.bigint().notNull(), // Penalty paid by the forced party
+    // Note: ids[] array is tracked via identifierState updates, similar to Allocate/Deallocate
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    senderIdx: index().on(table.sender),
+    adapterIdx: index().on(table.adapter),
+    onBehalfIdx: index().on(table.onBehalf), // Index for "who got penalized" queries
+  }),
+);
+
 /*//////////////////////////////////////////////////////////////
                     VAULT CHECKPOINT METRICS
 //////////////////////////////////////////////////////////////*/

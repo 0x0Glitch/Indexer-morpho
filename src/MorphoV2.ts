@@ -25,6 +25,7 @@ import {
   forceDeallocatePenaltySetEvent,
   allocateEvent,
   deallocateEvent,
+  forceDeallocateEvent,
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
@@ -58,7 +59,11 @@ async function ensureVaultExists(
   });
 
   if (!existing) {
-    console.log(`⚠️  Vault ${vaultAddress} not found - auto-creating with defaults (Block ${blockNumber})`);
+    logger.warn({
+      vaultAddress,
+      blockNumber: blockNumber.toString(),
+      transactionHash,
+    }, "Vault not found - auto-creating with defaults (indexing started after deployment)");
 
     await context.db.insert(vaultV2).values({
       chainId: context.chain.id,
@@ -73,7 +78,10 @@ async function ensureVaultExists(
       symbol: "",
     });
 
-    console.log(`✓ Vault record auto-created successfully`);
+    logger.debug({
+      vaultAddress,
+      blockNumber: blockNumber.toString(),
+    }, "Vault record auto-created successfully");
   }
 }
 
@@ -83,12 +91,15 @@ async function ensureVaultExists(
 
 ponder.on("MorphoV2:Constructor", async ({ event, context }) => {
   try {
-    console.log(`\n========== VAULT DEPLOYMENT (Block ${event.block.number}) ==========`);
-    console.log(`→ Vault Address: ${event.log.address}`);
-    console.log(`→ Asset Token: ${event.args.asset}`);
-    console.log(`→ Initial Owner: ${event.args.owner}`);
-    console.log(`→ Transaction: ${event.transaction.hash}`);
-    console.log(`→ Timestamp: ${new Date(Number(event.block.timestamp) * 1000).toISOString()}`);
+    logger.info({
+      event: "VaultDeployment",
+      vaultAddress: event.log.address,
+      asset: event.args.asset,
+      owner: event.args.owner,
+      blockNumber: event.block.number.toString(),
+      transactionHash: event.transaction.hash,
+      timestamp: new Date(Number(event.block.timestamp) * 1000).toISOString(),
+    }, "Vault deployed");
 
     await context.db.insert(vaultV2).values({
       // Primary key
@@ -107,8 +118,10 @@ ponder.on("MorphoV2:Constructor", async ({ event, context }) => {
       symbol: "",
     });
 
-    console.log(`✓ Vault indexed successfully`);
-    console.log(`================================================================\n`);
+    logger.debug({
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number.toString(),
+    }, "Vault indexed successfully");
   } catch (error) {
     logger.error({
       error,
@@ -276,10 +289,13 @@ ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
   try {
-    console.log(`\n---------- Allocator Status Update (Block ${event.block.number}) ----------`);
-    console.log(`Vault: ${event.log.address}`);
-    console.log(`Account: ${event.args.account}`);
-    console.log(`Is Allocator: ${event.args.newIsAllocator ? 'Yes ✓' : 'No ✗'}`);
+    logger.info({
+      event: "AllocatorStatusUpdate",
+      vaultAddress: event.log.address,
+      account: event.args.account,
+      newIsAllocator: event.args.newIsAllocator,
+      blockNumber: event.block.number.toString(),
+    }, "Allocator status changed");
 
     // Ensure vault exists
     await ensureVaultExists(
@@ -330,8 +346,11 @@ ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
       "SetIsAllocator",
     );
 
-    console.log(`✓ Successfully indexed SetIsAllocator event`);
-    console.log(`------------------------------------------------------------\n`);
+    logger.debug({
+      vaultAddress: event.log.address,
+      account: event.args.account,
+      blockNumber: event.block.number.toString(),
+    }, "SetIsAllocator event indexed");
   } catch (error) {
     logger.error({
       error,
@@ -1579,4 +1598,127 @@ ponder.on("MorphoV2:Deallocate", async ({ event, context }) => {
     event.log.logIndex,
     "Deallocate",
   );
+});
+
+ponder.on("MorphoV2:ForceDeallocate", async ({ event, context }) => {
+  const baseEventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  try {
+    logger.info({
+      event: "ForceDeallocate",
+      vaultAddress: event.log.address,
+      sentinel: event.args.sender,
+      adapter: event.args.adapter,
+      assets: event.args.assets.toString(),
+      onBehalf: event.args.onBehalf,
+      penaltyAssets: event.args.penaltyAssets.toString(),
+      identifiersCount: event.args.ids.length,
+      blockNumber: event.block.number.toString(),
+      transactionHash: event.transaction.hash,
+    }, "Forced deallocation executed - allocator penalized");
+
+    // Ensure vault exists
+    await ensureVaultExists(
+      context,
+      event.log.address,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+    );
+
+    // Insert event record (single record for the entire forced deallocation)
+    await context.db.insert(forceDeallocateEvent).values({
+      id: baseEventId,
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number,
+      blockTimestamp: event.block.timestamp,
+      transactionHash: event.transaction.hash,
+      transactionIndex: event.transaction.transactionIndex,
+      logIndex: event.log.logIndex,
+      sender: event.args.sender,
+      adapter: event.args.adapter,
+      assets: event.args.assets,
+      onBehalf: event.args.onBehalf,
+      penaltyAssets: event.args.penaltyAssets,
+    });
+
+    // Loop through each id in the ids[] array and update allocations
+    // ForceDeallocate reduces allocations just like Deallocate, but with a penalty
+    for (let i = 0; i < event.args.ids.length; i++) {
+      const identifierHash = event.args.ids[i]!;
+      const checkpointId = `${baseEventId}-${i}`;
+
+      // The change is negative (deallocating), and typically:
+      // change = -(assets + penaltyAssets) or similar, depending on VaultV2 semantics
+      // We need to read the actual allocation change from the contract state or compute it
+      // For now, we'll decrement by assets (the deallocation amount)
+      // Note: The penalty is separate from the allocation change
+      const allocationChange = -(event.args.assets); // Negative for deallocation
+
+      // Update identifier state - decrement allocation
+      await context.db
+        .insert(identifierState)
+        .values({
+          chainId: context.chain.id,
+          vaultAddress: event.log.address,
+          identifierHash,
+          absoluteCap: 0n,
+          relativeCap: 0n,
+          allocation: BigInt(allocationChange),
+        })
+        .onConflictDoUpdate((row) => ({
+          allocation: row.allocation + BigInt(allocationChange),
+        }));
+
+      // Create checkpoint
+      await capCheckpointManager.handleCapOrAllocationChange(
+        context,
+        context.chain.id,
+        event.log.address,
+        identifierHash,
+        checkpointId,
+        event.block.number,
+        event.block.timestamp,
+        event.transaction.hash,
+        event.log.logIndex,
+        null, // identifierData is null for allocation events
+      );
+
+      logger.debug({
+        vaultAddress: event.log.address,
+        identifierHash,
+        identifierIndex: i + 1,
+        totalIdentifiers: event.args.ids.length,
+      }, "Identifier allocation updated for forced deallocation");
+    }
+
+    // Create historical snapshot (after all forced deallocations are updated)
+    await HistoricalSnapshotManager.createSnapshot(
+      context,
+      context.chain.id,
+      event.log.address,
+      `${baseEventId}-snapshot`,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      "ForceDeallocate",
+    );
+
+    logger.debug({
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number.toString(),
+      identifiersUpdated: event.args.ids.length,
+    }, "ForceDeallocate event indexed successfully");
+  } catch (error) {
+    logger.error({
+      error,
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number.toString(),
+      onBehalf: event.args.onBehalf,
+      penaltyAssets: event.args.penaltyAssets.toString(),
+    }, "Failed to process ForceDeallocate event");
+    throw error;
+  }
 });
