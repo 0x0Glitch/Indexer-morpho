@@ -8,6 +8,7 @@ import {
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
+import { HistoricalSnapshotManager } from "./HistoricalSnapshotManager";
 import { createLogger } from "./utils/logger";
 
 const logger = createLogger({ module: "CheckpointHandlers" });
@@ -109,6 +110,19 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
     event.transaction.hash,
     event.log.logIndex,
   );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "AccrueInterest",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -166,6 +180,19 @@ ponder.on("MorphoV2:Deposit", async ({ event, context }) => {
       event.block.timestamp,
       event.transaction.hash,
       event.log.logIndex,
+    );
+
+    // Create historical snapshot
+    await HistoricalSnapshotManager.createSnapshot(
+      context,
+      context.chain.id,
+      event.log.address,
+      `${eventId}-snapshot`,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      "Deposit",
     );
 
     console.log(`✓ Deposit indexed successfully`);
@@ -229,6 +256,19 @@ ponder.on("MorphoV2:Withdraw", async ({ event, context }) => {
     event.transaction.hash,
     event.log.logIndex,
   );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "Withdraw",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -273,6 +313,19 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
       event.transaction.hash,
       event.log.logIndex,
     );
+
+    // Create historical snapshot
+    await HistoricalSnapshotManager.createSnapshot(
+      context,
+      context.chain.id,
+      event.log.address,
+      `${eventId}-snapshot`,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      "Transfer",
+    );
   } else if (isBurn) {
     // Update vault table accounting state
     await context.db
@@ -289,6 +342,19 @@ ponder.on("MorphoV2:Transfer", async ({ event, context }) => {
       event.block.timestamp,
       event.transaction.hash,
       event.log.logIndex,
+    );
+
+    // Create historical snapshot
+    await HistoricalSnapshotManager.createSnapshot(
+      context,
+      context.chain.id,
+      event.log.address,
+      `${eventId}-snapshot`,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      "Transfer",
     );
   }
   // Regular transfers (from != 0x0 && to != 0x0) do not change totalSupply, so no checkpoint needed

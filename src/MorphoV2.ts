@@ -29,6 +29,7 @@ import {
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
 import { capCheckpointManager } from "./CapCheckpointManager";
+import { HistoricalSnapshotManager } from "./HistoricalSnapshotManager";
 import { createLogger } from "./utils/logger";
 
 const logger = createLogger({ module: "MorphoV2EventHandlers" });
@@ -151,6 +152,19 @@ ponder.on("MorphoV2:SetOwner", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ owner: event.args.newOwner });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetOwner",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -186,6 +200,19 @@ ponder.on("MorphoV2:SetCurator", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ curator: event.args.newCurator });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetCurator",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -230,6 +257,19 @@ ponder.on("MorphoV2:SetIsSentinel", async ({ event, context }) => {
       }
       return { sentinels: [...set] };
     });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetIsSentinel",
+  );
 });
 
 ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
@@ -276,6 +316,19 @@ ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
         }
         return { allocators: [...set] };
       });
+
+    // Create historical snapshot
+    await HistoricalSnapshotManager.createSnapshot(
+      context,
+      context.chain.id,
+      event.log.address,
+      `${eventId}-snapshot`,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+      event.log.logIndex,
+      "SetIsAllocator",
+    );
 
     console.log(`✓ Successfully indexed SetIsAllocator event`);
     console.log(`------------------------------------------------------------\n`);
@@ -389,6 +442,19 @@ ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ receiveSharesGate: event.args.newReceiveSharesGate });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetReceiveSharesGate",
+  );
 });
 
 ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
@@ -421,6 +487,19 @@ ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ sendSharesGate: event.args.newSendSharesGate });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetSendSharesGate",
+  );
 });
 
 ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
@@ -453,6 +532,19 @@ ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ receiveAssetsGate: event.args.newReceiveAssetsGate });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetReceiveAssetsGate",
+  );
 });
 
 ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
@@ -485,6 +577,19 @@ ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ sendAssetsGate: event.args.newSendAssetsGate });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetSendAssetsGate",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -520,6 +625,19 @@ ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
   await context.db
     .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
     .set({ adapterRegistry: event.args.newAdapterRegistry });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetAdapterRegistry",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -560,6 +678,19 @@ ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
       set.add(event.args.account);
       return { adapters: [...set] };
     });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "AddAdapter",
+  );
 });
 
 ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
@@ -596,6 +727,19 @@ ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
       set.delete(event.args.account);
       return { adapters: [...set] };
     });
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "RemoveAdapter",
+  );
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -746,6 +890,19 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
     event.transaction.hash,
     event.log.logIndex,
   );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetPerformanceFee",
+  );
 });
 
 ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
@@ -788,6 +945,19 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
+  );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetPerformanceFeeRecipient",
   );
 });
 
@@ -832,6 +1002,19 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
     event.transaction.hash,
     event.log.logIndex,
   );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetManagementFee",
+  );
 });
 
 ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
@@ -874,6 +1057,19 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
+  );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetManagementFeeRecipient",
   );
 });
 
@@ -921,6 +1117,19 @@ ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
     event.block.timestamp,
     event.transaction.hash,
     event.log.logIndex,
+  );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "SetMaxRate",
   );
 });
 
@@ -1007,6 +1216,19 @@ ponder.on("MorphoV2:DecreaseAbsoluteCap", async ({ event, context }) => {
     event.log.logIndex,
     event.args.idData,
   );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "DecreaseAbsoluteCap",
+  );
 });
 
 ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
@@ -1056,6 +1278,19 @@ ponder.on("MorphoV2:IncreaseAbsoluteCap", async ({ event, context }) => {
     event.transaction.hash,
     event.log.logIndex,
     event.args.idData,
+  );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "IncreaseAbsoluteCap",
   );
 });
 
@@ -1107,6 +1342,19 @@ ponder.on("MorphoV2:DecreaseRelativeCap", async ({ event, context }) => {
     event.log.logIndex,
     event.args.idData,
   );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "DecreaseRelativeCap",
+  );
 });
 
 ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
@@ -1156,6 +1404,19 @@ ponder.on("MorphoV2:IncreaseRelativeCap", async ({ event, context }) => {
     event.transaction.hash,
     event.log.logIndex,
     event.args.idData,
+  );
+
+  // Create historical snapshot
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${eventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "IncreaseRelativeCap",
   );
 });
 
@@ -1216,6 +1477,19 @@ ponder.on("MorphoV2:Allocate", async ({ event, context }) => {
       null, // identifierData is null for allocation events
     );
   }
+
+  // Create historical snapshot (after all allocations are updated)
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${baseEventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "Allocate",
+  );
 });
 
 ponder.on("MorphoV2:Deallocate", async ({ event, context }) => {
@@ -1271,4 +1545,17 @@ ponder.on("MorphoV2:Deallocate", async ({ event, context }) => {
       null, // identifierData is null for allocation events
     );
   }
+
+  // Create historical snapshot (after all deallocations are updated)
+  await HistoricalSnapshotManager.createSnapshot(
+    context,
+    context.chain.id,
+    event.log.address,
+    `${baseEventId}-snapshot`,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+    event.log.logIndex,
+    "Deallocate",
+  );
 });

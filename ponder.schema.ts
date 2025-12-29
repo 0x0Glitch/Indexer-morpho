@@ -760,3 +760,83 @@ export const capCheckpoint = onchainTable(
     vaultIdTimestampIdx: index().on(table.chainId, table.vaultAddress, table.identifierHash, table.blockTimestamp),
   }),
 );
+
+/*//////////////////////////////////////////////////////////////
+                VAULT METRICS HISTORICAL SNAPSHOT
+//////////////////////////////////////////////////////////////*/
+
+/**
+ * Complete vault state snapshot created after every important event.
+ * This table provides a single source of truth for historical vault metrics
+ * at any point in time, making it easy to query past states without
+ * reconstructing from individual events.
+ */
+export const vaultMetricsHistorical = onchainTable(
+  "vault_metrics_historical",
+  (t) => ({
+    // Primary key is the event ID that triggered this snapshot
+    id: t.text().notNull(),
+    chainId: t.integer().notNull(),
+    vaultAddress: t.hex().notNull(),
+
+    // Snapshot metadata
+    blockNumber: t.bigint().notNull(),
+    blockTimestamp: t.bigint().notNull(),
+    transactionHash: t.hex().notNull(),
+    logIndex: t.integer().notNull(),
+    eventType: t.text().notNull(), // e.g., 'Deposit', 'Withdraw', 'Allocate', 'SetIsAllocator'
+
+    // ========== ACCOUNTING METRICS ==========
+    totalAssets: t.bigint().notNull(),
+    totalSupply: t.bigint().notNull(),
+    sharePrice: t.bigint().notNull(), // totalAssets / totalSupply (scaled by 1e18)
+    lastUpdateTimestamp: t.bigint().notNull(),
+
+    // ========== ALLOCATIONS SNAPSHOT ==========
+    // JSON object: { "identifierHash": allocation }
+    allocations: t.json().notNull().$type<Record<string, string>>().default({}),
+
+    // JSON object: { "identifierHash": absoluteCap }
+    absoluteCaps: t.json().notNull().$type<Record<string, string>>().default({}),
+
+    // JSON object: { "identifierHash": relativeCap }
+    relativeCaps: t.json().notNull().$type<Record<string, string>>().default({}),
+
+    // Total allocated across all adapters
+    totalAllocated: t.bigint().notNull().default(0n),
+
+    // ========== CONFIGURATION SNAPSHOT ==========
+    maxRate: t.bigint().notNull(),
+    performanceFee: t.bigint().notNull(),
+    managementFee: t.bigint().notNull(),
+    performanceFeeRecipient: t.hex().notNull(),
+    managementFeeRecipient: t.hex().notNull(),
+
+    // ========== ROLES SNAPSHOT ==========
+    allocators: t.hex().array().notNull().default([]),
+    sentinels: t.hex().array().notNull().default([]),
+    adapters: t.hex().array().notNull().default([]),
+
+    // ========== GATES SNAPSHOT ==========
+    receiveSharesGate: t.hex().notNull(),
+    sendSharesGate: t.hex().notNull(),
+    receiveAssetsGate: t.hex().notNull(),
+    sendAssetsGate: t.hex().notNull(),
+
+    // ========== METADATA ==========
+    owner: t.hex().notNull(),
+    curator: t.hex().notNull(),
+    adapterRegistry: t.hex().notNull(),
+    liquidityAdapter: t.hex().notNull(),
+  }),
+  (table) => ({
+    pk: primaryKey({ columns: [table.id] }),
+    vaultIdx: index().on(table.chainId, table.vaultAddress),
+    blockNumberIdx: index().on(table.blockNumber),
+    timestampIdx: index().on(table.blockTimestamp),
+    // Composite index for efficient point-in-time queries
+    vaultBlockIdx: index().on(table.chainId, table.vaultAddress, table.blockNumber),
+    vaultTimestampIdx: index().on(table.chainId, table.vaultAddress, table.blockTimestamp),
+    eventTypeIdx: index().on(table.eventType),
+  }),
+);
