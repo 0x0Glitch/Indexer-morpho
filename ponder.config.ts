@@ -16,9 +16,9 @@ export default createConfig({
       // Multiple vault addresses can be indexed by providing an array
       // Each vault will be tracked independently with its own events
       address: [
-
+        "0xbeef0046fcab1dE47E41fB75BB3dC4Dfc94108E3"
       ],
-      startBlock: 0, 
+      startBlock: 23903028,
     },
   },
 });

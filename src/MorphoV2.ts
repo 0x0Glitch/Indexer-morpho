@@ -29,6 +29,9 @@ import {
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
 import { capCheckpointManager } from "./CapCheckpointManager";
+import { createLogger } from "./utils/logger";
+
+const logger = createLogger({ module: "MorphoV2EventHandlers" });
 
 /**
  * @dev Morpho V2 Event Handlers
@@ -37,27 +40,82 @@ import { capCheckpointManager } from "./CapCheckpointManager";
  * Events are organized into logical sections following the v1 pattern.
  */
 
+/**
+ * Helper function to ensure vault exists before updating
+ * Creates vault with minimal data if it doesn't exist (e.g., if indexing started after deployment)
+ */
+async function ensureVaultExists(
+  context: any,
+  vaultAddress: `0x${string}`,
+  blockNumber: bigint,
+  blockTimestamp: bigint,
+  transactionHash: `0x${string}`,
+): Promise<void> {
+  const existing = await context.db.find(vaultV2, {
+    chainId: context.chain.id,
+    address: vaultAddress,
+  });
+
+  if (!existing) {
+    console.log(`⚠️  Vault ${vaultAddress} not found - auto-creating with defaults (Block ${blockNumber})`);
+
+    await context.db.insert(vaultV2).values({
+      chainId: context.chain.id,
+      address: vaultAddress,
+      createdAtBlock: blockNumber,
+      createdAtTimestamp: blockTimestamp,
+      createdAtTransaction: transactionHash,
+      asset: zeroAddress,
+      owner: zeroAddress,
+      curator: zeroAddress,
+      name: "",
+      symbol: "",
+    });
+
+    console.log(`✓ Vault record auto-created successfully`);
+  }
+}
+
 /*//////////////////////////////////////////////////////////////
                         VAULT CREATION
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:Constructor", async ({ event, context }) => {
-  await context.db.insert(vaultV2).values({
-    // Primary key
-    chainId: context.chain.id,
-    address: event.log.address,
-    // Creation metadata
-    createdAtBlock: event.block.number,
-    createdAtTimestamp: event.block.timestamp,
-    createdAtTransaction: event.transaction.hash,
-    // Immutables
-    asset: event.args.asset,
-    owner: event.args.owner,
-    // Defaults - these will be set by subsequent events
-    curator: zeroAddress,
-    name: "",
-    symbol: "",
-  });
+  try {
+    console.log(`\n========== VAULT DEPLOYMENT (Block ${event.block.number}) ==========`);
+    console.log(`→ Vault Address: ${event.log.address}`);
+    console.log(`→ Asset Token: ${event.args.asset}`);
+    console.log(`→ Initial Owner: ${event.args.owner}`);
+    console.log(`→ Transaction: ${event.transaction.hash}`);
+    console.log(`→ Timestamp: ${new Date(Number(event.block.timestamp) * 1000).toISOString()}`);
+
+    await context.db.insert(vaultV2).values({
+      // Primary key
+      chainId: context.chain.id,
+      address: event.log.address,
+      // Creation metadata
+      createdAtBlock: event.block.number,
+      createdAtTimestamp: event.block.timestamp,
+      createdAtTransaction: event.transaction.hash,
+      // Immutables
+      asset: event.args.asset,
+      owner: event.args.owner,
+      // Defaults - these will be set by subsequent events
+      curator: zeroAddress,
+      name: "",
+      symbol: "",
+    });
+
+    console.log(`✓ Vault indexed successfully`);
+    console.log(`================================================================\n`);
+  } catch (error) {
+    logger.error({
+      error,
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number.toString()
+    }, "Failed to create vault record");
+    throw error;
+  }
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -66,6 +124,15 @@ ponder.on("MorphoV2:Constructor", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetOwner", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(ownerSetEvent).values({
@@ -93,6 +160,15 @@ ponder.on("MorphoV2:SetOwner", async ({ event, context }) => {
 ponder.on("MorphoV2:SetCurator", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(curatorSetEvent).values({
     id: eventId,
@@ -118,6 +194,15 @@ ponder.on("MorphoV2:SetCurator", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetIsSentinel", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(sentinelSetEvent).values({
@@ -150,32 +235,58 @@ ponder.on("MorphoV2:SetIsSentinel", async ({ event, context }) => {
 ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
-  // Insert event record
-  await context.db.insert(allocatorSetEvent).values({
-    id: eventId,
-    chainId: context.chain.id,
-    vaultAddress: event.log.address,
-    blockNumber: event.block.number,
-    blockTimestamp: event.block.timestamp,
-    transactionHash: event.transaction.hash,
-    transactionIndex: event.transaction.transactionIndex,
-    logIndex: event.log.logIndex,
-    account: event.args.account,
-    newIsAllocator: event.args.newIsAllocator,
-  });
+  try {
+    console.log(`\n---------- Allocator Status Update (Block ${event.block.number}) ----------`);
+    console.log(`Vault: ${event.log.address}`);
+    console.log(`Account: ${event.args.account}`);
+    console.log(`Is Allocator: ${event.args.newIsAllocator ? 'Yes ✓' : 'No ✗'}`);
 
-  // Update vault state
-  await context.db
-    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
-    .set((row) => {
-      const set = new Set(row.allocators);
-      if (event.args.newIsAllocator) {
-        set.add(event.args.account);
-      } else {
-        set.delete(event.args.account);
-      }
-      return { allocators: [...set] };
+    // Ensure vault exists
+    await ensureVaultExists(
+      context,
+      event.log.address,
+      event.block.number,
+      event.block.timestamp,
+      event.transaction.hash,
+    );
+
+    // Insert event record
+    await context.db.insert(allocatorSetEvent).values({
+      id: eventId,
+      chainId: context.chain.id,
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number,
+      blockTimestamp: event.block.timestamp,
+      transactionHash: event.transaction.hash,
+      transactionIndex: event.transaction.transactionIndex,
+      logIndex: event.log.logIndex,
+      account: event.args.account,
+      newIsAllocator: event.args.newIsAllocator,
     });
+
+    // Update vault state
+    await context.db
+      .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+      .set((row) => {
+        const set = new Set(row.allocators);
+        if (event.args.newIsAllocator) {
+          set.add(event.args.account);
+        } else {
+          set.delete(event.args.account);
+        }
+        return { allocators: [...set] };
+      });
+
+    console.log(`✓ Successfully indexed SetIsAllocator event`);
+    console.log(`------------------------------------------------------------\n`);
+  } catch (error) {
+    logger.error({
+      error,
+      vaultAddress: event.log.address,
+      blockNumber: event.block.number.toString()
+    }, "Failed to process SetIsAllocator event");
+    throw error;
+  }
 });
 
 /*//////////////////////////////////////////////////////////////
@@ -184,6 +295,15 @@ ponder.on("MorphoV2:SetIsAllocator", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetName", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(nameSetEvent).values({
@@ -206,6 +326,15 @@ ponder.on("MorphoV2:SetName", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetSymbol", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(symbolSetEvent).values({
@@ -233,6 +362,15 @@ ponder.on("MorphoV2:SetSymbol", async ({ event, context }) => {
 ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(gateSetEvent).values({
     id: eventId,
@@ -255,6 +393,15 @@ ponder.on("MorphoV2:SetReceiveSharesGate", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(gateSetEvent).values({
@@ -279,6 +426,15 @@ ponder.on("MorphoV2:SetSendSharesGate", async ({ event, context }) => {
 ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(gateSetEvent).values({
     id: eventId,
@@ -301,6 +457,15 @@ ponder.on("MorphoV2:SetReceiveAssetsGate", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(gateSetEvent).values({
@@ -329,6 +494,15 @@ ponder.on("MorphoV2:SetSendAssetsGate", async ({ event, context }) => {
 ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(adapterRegistrySetEvent).values({
     id: eventId,
@@ -354,6 +528,15 @@ ponder.on("MorphoV2:SetAdapterRegistry", async ({ event, context }) => {
 
 ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(adapterMembershipEvent).values({
@@ -381,6 +564,15 @@ ponder.on("MorphoV2:AddAdapter", async ({ event, context }) => {
 
 ponder.on("MorphoV2:RemoveAdapter", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(adapterMembershipEvent).values({
@@ -476,6 +668,15 @@ ponder.on("MorphoV2:Abdicate", async ({ event, context }) => {
 ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(liquidityAdapterSetEvent).values({
     id: eventId,
@@ -506,6 +707,15 @@ ponder.on("MorphoV2:SetLiquidityAdapterAndData", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(performanceFeeSetEvent).values({
@@ -541,6 +751,15 @@ ponder.on("MorphoV2:SetPerformanceFee", async ({ event, context }) => {
 ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(performanceFeeRecipientSetEvent).values({
     id: eventId,
@@ -575,6 +794,15 @@ ponder.on("MorphoV2:SetPerformanceFeeRecipient", async ({ event, context }) => {
 ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
 
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
+
   // Insert event record
   await context.db.insert(managementFeeSetEvent).values({
     id: eventId,
@@ -608,6 +836,15 @@ ponder.on("MorphoV2:SetManagementFee", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(managementFeeRecipientSetEvent).values({
@@ -646,6 +883,15 @@ ponder.on("MorphoV2:SetManagementFeeRecipient", async ({ event, context }) => {
 
 ponder.on("MorphoV2:SetMaxRate", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+
+  // Ensure vault exists
+  await ensureVaultExists(
+    context,
+    event.log.address,
+    event.block.number,
+    event.block.timestamp,
+    event.transaction.hash,
+  );
 
   // Insert event record
   await context.db.insert(maxRateSetEvent).values({
