@@ -547,10 +547,22 @@ export const accrueInterestEvent = onchainTable(
     transactionIndex: t.integer().notNull(),
     logIndex: t.integer().notNull(),
 
+    // Event args (accounting values)
     previousTotalAssets: t.bigint().notNull(),
     newTotalAssets: t.bigint().notNull(),
     performanceFeeShares: t.bigint().notNull(),
     managementFeeShares: t.bigint().notNull(),
+
+    // Real asset metrics (fetched from contract state)
+    // realAssets = idle balance + sum(adapter realAssets)
+    realAssets: t.bigint().notNull(),
+    // Idle balance in vault (IERC20(asset).balanceOf(vault))
+    idleAssets: t.bigint().notNull(),
+    // Maximum allowed totalAssets based on maxRate cap
+    // maxTotalAssets = previousTotalAssets + (previousTotalAssets * elapsed * maxRate / WAD)
+    maxTotalAssets: t.bigint().notNull(),
+    // Time elapsed since last update (for maxRate calculations)
+    elapsed: t.bigint().notNull(),
   }),
   (table) => ({
     pk: primaryKey({ columns: [table.id] }),

@@ -9,10 +9,17 @@ import {
 } from "ponder:schema";
 import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
-import { HistoricalSnapshotManager } from "./HistoricalSnapshotManager";
 import { createLogger } from "./utils/logger";
+import { ensureVaultExists } from "./utils/vaultInitializer";
+import { HistoricalSnapshotManager } from "./HistoricalSnapshotManager";
+import { MorphoV2Abi } from "../abis/MorphoV2Abi";
+import { ERC20Abi } from "../abis/ERC20Abi";
+import { IAdapterAbi } from "../abis/IAdapterAbi";
 
 const logger = createLogger({ module: "CheckpointHandlers" });
+
+// Precision constant for maxRate calculations (18 decimals)
+const WAD = 1_000_000_000_000_000_000n;
 
 /**
  * @dev Checkpoint Event Handlers
@@ -28,59 +35,156 @@ const logger = createLogger({ module: "CheckpointHandlers" });
  * 5. Transfer (to=0x0) - burn, decreases totalSupply
  */
 
-/**
- * Helper function to ensure vault exists before updating
- * Creates vault with minimal data if it doesn't exist (e.g., if indexing started after deployment)
- */
-async function ensureVaultExists(
-  context: any,
-  vaultAddress: `0x${string}`,
-  blockNumber: bigint,
-  blockTimestamp: bigint,
-  transactionHash: `0x${string}`,
-): Promise<void> {
-  const existing = await context.db.find(vaultV2, {
-    chainId: context.chain.id,
-    address: vaultAddress,
-  });
-
-  if (!existing) {
-    await context.db.insert(vaultV2).values({
-      chainId: context.chain.id,
-      address: vaultAddress,
-      createdAtBlock: blockNumber,
-      createdAtTimestamp: blockTimestamp,
-      createdAtTransaction: transactionHash,
-      asset: zeroAddress,
-      owner: zeroAddress,
-      curator: zeroAddress,
-      name: "",
-      symbol: "",
-    });
-  }
-}
-
 /*//////////////////////////////////////////////////////////////
                       ACCRUE INTEREST
 //////////////////////////////////////////////////////////////*/
 
 ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
   const eventId = `${context.chain.id}-${event.transaction.hash}-${event.log.logIndex}`;
+  const vaultAddress = event.log.address;
 
   // Ensure vault exists
   await ensureVaultExists(
     context,
-    event.log.address,
+    vaultAddress,
     event.block.number,
     event.block.timestamp,
     event.transaction.hash,
   );
 
-  // Insert event record
+  // Fetch real asset metrics from contract state
+  // Following user's guidance: "what soever data is directly available by function call should be captured directly"
+
+  let realAssets = 0n;
+  let idleAssets = 0n;
+  let maxTotalAssets = 0n;
+  let elapsed = 0n;
+
+  try {
+    // 1. Get asset address from vault
+    const assetAddress = await context.client.readContract({
+      address: vaultAddress,
+      abi: MorphoV2Abi,
+      functionName: "asset",
+      blockNumber: event.block.number,
+    }) as `0x${string}`;
+
+    // 2. Get idle balance: IERC20(asset).balanceOf(vault)
+    idleAssets = await context.client.readContract({
+      address: assetAddress,
+      abi: ERC20Abi,
+      functionName: "balanceOf",
+      args: [vaultAddress],
+      blockNumber: event.block.number,
+    }) as bigint;
+
+    // 3. Get adapters array
+    const adapters = await context.client.readContract({
+      address: vaultAddress,
+      abi: MorphoV2Abi,
+      functionName: "adapters",
+      blockNumber: event.block.number,
+    }) as `0x${string}`[];
+
+    // 4. Sum adapter realAssets
+    let adapterRealAssets = 0n;
+    for (const adapter of adapters) {
+      try {
+        const adapterAssets = await context.client.readContract({
+          address: adapter,
+          abi: IAdapterAbi,
+          functionName: "realAssets",
+          blockNumber: event.block.number,
+        }) as bigint;
+        adapterRealAssets += adapterAssets;
+      } catch (adapterError) {
+        logger.warn({
+          vaultAddress,
+          adapter,
+          blockNumber: event.block.number.toString(),
+          error: adapterError,
+        }, "Failed to fetch realAssets from adapter, skipping");
+      }
+    }
+
+    // 5. Calculate realAssets = idle + sum(adapter realAssets)
+    realAssets = idleAssets + adapterRealAssets;
+
+    // 6. Get maxTotalAssets from contract's accrueInterestView function
+    // This avoids duplicating the maxRate cap calculation logic
+    const [contractNewTotalAssets, contractPerfFeeShares, contractMgmtFeeShares] =
+      await context.client.readContract({
+        address: vaultAddress,
+        abi: MorphoV2Abi,
+        functionName: "accrueInterestView",
+        blockNumber: event.block.number,
+      }) as [bigint, bigint, bigint];
+
+    // Get lastUpdate for elapsed time calculation
+    const lastUpdate = await context.client.readContract({
+      address: vaultAddress,
+      abi: MorphoV2Abi,
+      functionName: "lastUpdate",
+      blockNumber: event.block.number,
+    }) as bigint;
+
+    elapsed = event.block.timestamp - lastUpdate;
+
+    // maxTotalAssets is derived from the contract's calculation
+    // We compute it as: previousTotalAssets + (newTotalAssets - previousTotalAssets from contract)
+    // But actually, the contract's accrueInterestView already computed maxTotalAssets internally
+    // and chose min(realAssets, maxTotalAssets) as newTotalAssets.
+    // To get maxTotalAssets, we need to calculate it ourselves OR read maxRate
+    const maxRate = await context.client.readContract({
+      address: vaultAddress,
+      abi: MorphoV2Abi,
+      functionName: "maxRate",
+      blockNumber: event.block.number,
+    }) as bigint;
+
+    // maxTotalAssets = previousTotalAssets + (previousTotalAssets * elapsed * maxRate / WAD)
+    const maxInterest = (event.args.previousTotalAssets * elapsed * maxRate) / WAD;
+    maxTotalAssets = event.args.previousTotalAssets + maxInterest;
+
+    // Validation: Check if contract's calculation matches event args
+    const contractMatchesEvent = contractNewTotalAssets === event.args.newTotalAssets;
+    if (!contractMatchesEvent) {
+      logger.warn({
+        vaultAddress,
+        blockNumber: event.block.number.toString(),
+        contractNewTotalAssets: contractNewTotalAssets.toString(),
+        eventNewTotalAssets: event.args.newTotalAssets.toString(),
+        diff: (contractNewTotalAssets - event.args.newTotalAssets).toString(),
+      }, "Contract accrueInterestView() differs from event - possible state change during block");
+    }
+
+    logger.debug({
+      vaultAddress,
+      blockNumber: event.block.number.toString(),
+      realAssets: realAssets.toString(),
+      idleAssets: idleAssets.toString(),
+      adapterRealAssets: adapterRealAssets.toString(),
+      maxTotalAssets: maxTotalAssets.toString(),
+      newTotalAssets: event.args.newTotalAssets.toString(),
+      contractNewTotalAssets: contractNewTotalAssets.toString(),
+      contractMatchesEvent,
+      cappedInterest: realAssets > maxTotalAssets ? (maxTotalAssets - event.args.previousTotalAssets).toString() : undefined,
+    }, "AccrueInterest: Real asset metrics captured");
+
+  } catch (error) {
+    logger.error({
+      vaultAddress,
+      blockNumber: event.block.number.toString(),
+      error,
+    }, "Failed to fetch real asset metrics, using zero values");
+    // Continue with zeros - better to have partial data than to fail completely
+  }
+
+  // Insert event record with real asset metrics
   await context.db.insert(accrueInterestEvent).values({
     id: eventId,
     chainId: context.chain.id,
-    vaultAddress: event.log.address,
+    vaultAddress,
     blockNumber: event.block.number,
     blockTimestamp: event.block.timestamp,
     transactionHash: event.transaction.hash,
@@ -90,11 +194,16 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
     newTotalAssets: event.args.newTotalAssets,
     performanceFeeShares: event.args.performanceFeeShares,
     managementFeeShares: event.args.managementFeeShares,
+    // Real asset metrics
+    realAssets,
+    idleAssets,
+    maxTotalAssets,
+    elapsed,
   });
 
   // Update vault table accounting state
   await context.db
-    .update(vaultV2, { chainId: context.chain.id, address: event.log.address })
+    .update(vaultV2, { chainId: context.chain.id, address: vaultAddress })
     .set({
       totalAssets: event.args.newTotalAssets,
       lastUpdateTimestamp: event.block.timestamp,
@@ -104,7 +213,7 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
   await checkpointManager.handleAccountingEvent(
     context,
     context.chain.id,
-    event.log.address,
+    vaultAddress,
     eventId,
     event.block.number,
     event.block.timestamp,
@@ -116,7 +225,7 @@ ponder.on("MorphoV2:AccrueInterest", async ({ event, context }) => {
   await HistoricalSnapshotManager.createSnapshot(
     context,
     context.chain.id,
-    event.log.address,
+    vaultAddress,
     `${eventId}-snapshot`,
     event.block.number,
     event.block.timestamp,

@@ -27,11 +27,12 @@ import {
   deallocateEvent,
   forceDeallocateEvent,
 } from "ponder:schema";
-import { zeroAddress } from "viem";
 import { checkpointManager } from "./VaultCheckpointManager";
 import { capCheckpointManager } from "./CapCheckpointManager";
 import { HistoricalSnapshotManager } from "./HistoricalSnapshotManager";
 import { createLogger } from "./utils/logger";
+import { ensureVaultExists } from "./utils/vaultInitializer";
+import { zeroAddress } from "viem";
 
 const logger = createLogger({ module: "MorphoV2EventHandlers" });
 
@@ -41,49 +42,6 @@ const logger = createLogger({ module: "MorphoV2EventHandlers" });
  * This file contains event handlers for Morpho V2 vault events.
  * Events are organized into logical sections following the v1 pattern.
  */
-
-/**
- * Helper function to ensure vault exists before updating
- * Creates vault with minimal data if it doesn't exist (e.g., if indexing started after deployment)
- */
-async function ensureVaultExists(
-  context: any,
-  vaultAddress: `0x${string}`,
-  blockNumber: bigint,
-  blockTimestamp: bigint,
-  transactionHash: `0x${string}`,
-): Promise<void> {
-  const existing = await context.db.find(vaultV2, {
-    chainId: context.chain.id,
-    address: vaultAddress,
-  });
-
-  if (!existing) {
-    logger.warn({
-      vaultAddress,
-      blockNumber: blockNumber.toString(),
-      transactionHash,
-    }, "Vault not found - auto-creating with defaults (indexing started after deployment)");
-
-    await context.db.insert(vaultV2).values({
-      chainId: context.chain.id,
-      address: vaultAddress,
-      createdAtBlock: blockNumber,
-      createdAtTimestamp: blockTimestamp,
-      createdAtTransaction: transactionHash,
-      asset: zeroAddress,
-      owner: zeroAddress,
-      curator: zeroAddress,
-      name: "",
-      symbol: "",
-    });
-
-    logger.debug({
-      vaultAddress,
-      blockNumber: blockNumber.toString(),
-    }, "Vault record auto-created successfully");
-  }
-}
 
 /*//////////////////////////////////////////////////////////////
                         VAULT CREATION

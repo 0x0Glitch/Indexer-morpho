@@ -47,29 +47,31 @@ export class HistoricalSnapshotManager {
     }
 
     // Get the most recent snapshot to copy from
-    const previousSnapshots = await context.db
-      .select()
-      .from(vaultMetricsHistorical)
-      .where((row: any) =>
-        row.chainId === chainId && row.vaultAddress === vaultAddress
-      )
-      .orderBy((row: any, { desc }: any) => desc(row.blockNumber))
-      .limit(1);
+    const previousSnapshots = await context.db.sql.execute(
+      context.db.sql`
+        SELECT * FROM vault_metrics_historical
+        WHERE "chainId" = ${chainId} AND "vaultAddress" = ${vaultAddress}
+        ORDER BY "blockNumber" DESC LIMIT 1
+      `
+    );
 
-    const previousSnapshot = previousSnapshots[0];
+    const previousSnapshot = previousSnapshots.rows[0] as any;
 
     // Get all current identifier states (allocations, caps)
-    const identifiers = await context.db
-      .select({
-        identifierHash: identifierState.identifierHash,
-        absoluteCap: identifierState.absoluteCap,
-        relativeCap: identifierState.relativeCap,
-        allocation: identifierState.allocation,
-      })
-      .from(identifierState)
-      .where((row: any) =>
-        row.chainId === chainId && row.vaultAddress === vaultAddress
-      );
+    const identifiersResult = await context.db.sql.execute(
+      context.db.sql`
+        SELECT "identifierHash", "absoluteCap", "relativeCap", "allocation"
+        FROM identifier_state
+        WHERE "chainId" = ${chainId} AND "vaultAddress" = ${vaultAddress}
+      `
+    );
+
+    const identifiers = identifiersResult.rows as Array<{
+      identifierHash: string;
+      absoluteCap: bigint;
+      relativeCap: bigint;
+      allocation: bigint;
+    }>;
 
     // Build current allocation, absoluteCap, and relativeCap hashmaps
     const allocations: Record<string, string> = {};
